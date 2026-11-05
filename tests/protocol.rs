@@ -1253,7 +1253,7 @@ fn random_fields_redraw_records_without_touching_headers_or_other_fields() {
 #[test]
 fn random_fields_validate_bounds_and_do_not_expand_combinations() {
     let one = |name: &str, value: serde_json::Value| json!({"flows":[{"template_id":800,"fields":[{"name":name,"value":value}]}]});
-    let plan = build(one("l4_src_port", json!({"random":true})), 64).unwrap();
+    let plan = build(one("l4_src_port", json!({"random_between":[1,65535]})), 64).unwrap();
     assert_eq!(plan.records, 1);
     let port = &plan.data[0].random_fields[0];
     assert_eq!((port.min, port.max), (1, 65535));
@@ -1274,15 +1274,8 @@ fn random_fields_validate_bounds_and_do_not_expand_combinations() {
         ("L4_SRC_PORT", json!({"random_between":[1,2],"random":true})),
         ("L4_SRC_PORT", json!({"random_between":[1,2],"step":1})),
         ("L4_SRC_PORT", json!([{"random_between":[1,2]}])),
-        ("IN_BYTES", json!({"random":true})),
-        ("L4_SRC_PORT", json!({"random":false})),
-        ("L4_SRC_PORT", json!({"random":"true"})),
-        ("L4_DST_PORT", json!({"random":true,"min":10,"max":9})),
-        ("L4_DST_PORT", json!({"random":true,"min":-1})),
-        ("L4_DST_PORT", json!({"random":true,"max":65536})),
-        ("L4_DST_PORT", json!({"random":true,"min":1.5})),
-        ("L4_DST_PORT", json!({"random":true,"step":2})),
-        ("L4_DST_PORT", json!([{ "random":true }])),
+        ("L4_SRC_PORT", json!({"random":true})),
+        ("L4_DST_PORT", json!({"random":true,"min":1,"max":65535})),
     ] {
         let error = build(one(name, value), 1400).unwrap_err();
         assert!(format!("{error:#}").contains(name));
@@ -1434,8 +1427,10 @@ fn random_file_draws_host_addresses_relative_to_the_config() {
         config.base = dir.clone();
         config::validate(&config).map(|_| ())
     };
-    assert!(one("IPV6_SRC_ADDR", "v6.txt", "2001:db8::1/64\n\n2001:db8::2\n").is_ok());
+    assert!(one("IPV6_SRC_ADDR", "v6.txt", "2001:db8::1\n\n2001:db8::2\n").is_ok());
     for (name, file, text) in [
+        ("IPV4_SRC_ADDR", "cidr-v4.txt", "192.0.2.1\n198.51.100.0/24\n"),
+        ("IPV6_SRC_ADDR", "cidr-v6.txt", "2001:db8::1\n2001:db8::2/64\n"),
         ("IPV4_SRC_ADDR", "v6-in-v4.txt", "2001:db8::1\n"),
         ("IPV4_SRC_ADDR", "empty.txt", "# nothing\n\n"),
         ("IPV4_SRC_ADDR", "bad.txt", "192.0.2.1\nnot-an-ip\n"),
@@ -1443,6 +1438,9 @@ fn random_file_draws_host_addresses_relative_to_the_config() {
     ] {
         let error = format!("{:#}", one(name, file, text).unwrap_err());
         assert!(error.contains(name), "{error}");
+        if file.starts_with("cidr-") {
+            assert!(error.contains(file) && error.contains("line 2"), "{error}");
+        }
     }
     assert!(
         format!(

@@ -35,8 +35,6 @@ pub struct FlowConfig {
     pub scope: Vec<FieldConfig>,
     #[serde(default)]
     pub fields: Vec<FieldConfig>,
-    #[serde(default)]
-    pub mpls_stack: Option<Vec<Value>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -170,9 +168,7 @@ fn random_file(path: &Path, spec: FieldSpec) -> Result<Values> {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        // Every entry is a single host (/32 or /128): any prefix length is ignored.
-        let ip = line.split_once('/').map_or(line, |(ip, _)| ip).trim();
-        let (number, length) = address(ip, spec.kind)
+        let (number, length) = address(line, spec.kind)
             .with_context(|| format!("{} line {}", path.display(), index + 1))?;
         addresses.extend_from_slice(&number.to_be_bytes()[16 - length..]);
     }
@@ -529,51 +525,6 @@ fn prefix_values(text: &str, hosts_only: bool, spec: FieldSpec) -> Result<Values
     })
 }
 
-fn stack_fields(stack: &[Value]) -> Result<Vec<FieldConfig>> {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Entry {
-        label: u32,
-        #[serde(default)]
-        tc: u8,
-    }
-    ensure!(
-        (1..=10).contains(&stack.len()),
-        "mpls_stack must contain 1–10 labels"
-    );
-    let mut fields = Vec::with_capacity(stack.len() + 3);
-    let mut top_tc = 0;
-    for (index, value) in stack.iter().enumerate() {
-        let entry: Entry = if let Some(label) = value.as_u64() {
-            Entry {
-                label: u32::try_from(label)
-                    .context("MPLS label exceeds the 32-bit integer range")?,
-                tc: 0,
-            }
-        } else {
-            serde_json::from_value(value.clone()).with_context(|| format!("mpls_stack[{index}] must be a label integer or {{label, tc}} object; BoS is set automatically. Use MPLS_TOP_LABEL_TTL for TTL"))?
-        };
-        if index == 0 {
-            top_tc = entry.tc;
-        }
-        fields.push(FieldConfig {
-            name: format!("MPLS_LABEL_{}", index + 1),
-            value: json!({"label":entry.label,"tc":entry.tc,"bos":index+1==stack.len()}),
-        });
-    }
-    for (name, value) in [
-        ("MPLS_LABEL_STACK_DEPTH", stack.len()),
-        ("MPLS_LABEL_STACK_LENGTH", stack.len() * 4),
-        ("MPLS_TOP_LABEL_EXP", top_tc as usize),
-    ] {
-        fields.push(FieldConfig {
-            name: name.into(),
-            value: json!(value),
-        });
-    }
-    Ok(fields)
-}
-
 fn values(value: &Value, spec: FieldSpec, name: &str, base: &Path) -> Result<Values> {
     if value
         .as_object()
@@ -610,42 +561,6 @@ fn values(value: &Value, spec: FieldSpec, name: &str, base: &Path) -> Result<Val
         return Ok(Values::RandomField {
             min,
             max,
-            length: spec.length,
-        });
-    }
-    if value
-        .as_object()
-        .is_some_and(|object| object.contains_key("random"))
-    {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct RandomPort {
-            random: bool,
-            #[serde(default = "min_port")]
-            min: u16,
-            #[serde(default = "max_port")]
-            max: u16,
-        }
-        fn min_port() -> u16 {
-            1
-        }
-        fn max_port() -> u16 {
-            u16::MAX
-        }
-        ensure!(
-            matches!(name, "L4_SRC_PORT" | "L4_DST_PORT"),
-            "random is only supported for L4_SRC_PORT / L4_DST_PORT"
-        );
-        let random: RandomPort = serde_json::from_value(value.clone())
-            .context("random must be true, with optional min/max (0..=65535)")?;
-        ensure!(
-            random.random,
-            "Without random, provide a port integer, array, or range directly"
-        );
-        ensure!(random.min <= random.max, "random min must not exceed max");
-        return Ok(Values::RandomField {
-            min: u32::from(random.min),
-            max: u32::from(random.max),
             length: spec.length,
         });
     }
@@ -788,33 +703,13 @@ pub fn validate(config: &Config) -> Result<Vec<Flow>> {
                 input.template_id >= 256,
                 "template_id must be within 256..=65535"
             );
-            let generated = input
-                .mpls_stack
-                .as_deref()
-                .map(stack_fields)
-                .transpose()?
-                .unwrap_or_default();
-            ensure!(
-                !input.fields.is_empty() || !generated.is_empty(),
-                "At least one of fields or mpls_stack is required"
-            );
-            if input.mpls_stack.is_some() {
-                for field in &input.fields {
-                    let name = field.name.to_ascii_uppercase();
-                    let controlled = fields::lookup(&name, false)
-                        .is_ok_and(|spec| matches!(spec.id, 70..=79 | 201..=203));
-                    ensure!(
-                        !controlled,
-                        "fields.{name} conflicts with a field generated by mpls_stack; remove the manual field"
-                    );
-                }
-            }
+            ensure!(!input.fields.is_empty(), "fields must not be empty");
             let mut columns = Vec::new();
             let mut record_count = 1usize;
             let mut record_length = 0usize;
             for (scope, fields) in [(true, &input.scope), (false, &input.fields)] {
                 let mut names = HashSet::new();
-                for field in fields.iter().chain(generated.iter().filter(|_| !scope)) {
+                for field in fields {
                     let name = field.name.to_ascii_uppercase();
                     let result = (|| -> Result<Column> {
                         ensure!(

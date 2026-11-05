@@ -2,6 +2,8 @@
 
 [English (en-US)](field.md) | [繁體中文 (zh-TW)](field.zh-TW.md)
 
+[Field/value support matrix (English)](FIELD-SUPPORT.md)
+
 本表依目前 [欄位定義](src/fields.rs) 與 [JSON 驗證器](src/config.rs) 整理，包含 **53 個一般欄位、5 種 Options scope**。操作流程與 CLI 參數見 [README](README.zh-TW.md)。
 
 多組 flow 可共用同一個 `template_id`，但 scope 與欄位結構必須一致；每組的值獨立展開，不做跨組配對，見 [共用 Template](README.zh-TW.md#多組資料共用-template)。
@@ -137,7 +139,7 @@ IPv4 prefix 預設包含網段首尾，`/24` 為 256 個位址；hosts_only 排�
 {"name":"IN_PKTS","value":{"random_between":[10,100]}}
 ```
 
-上下限都包含、min≤max，每次發送逐筆重抽，允許重複；每欄只算一個設定值。各欄位獨立抽樣，不保證 PKTS／BYTES 比例。OUT_PKTS／OUT_BYTES 不支援隨機值。僅 L4 port 另接受舊格式 `{"random":true,"min":1,"max":65535}`，省略上下限時為 1～65535。
+上下限都包含、min≤max，每次發送逐筆重抽，允許重複；每欄只算一個設定值。各欄位獨立抽樣，不保證 PKTS／BYTES 比例。OUT_PKTS／OUT_BYTES 不支援隨機值。隨機數值僅接受 `random_between`，舊的 `random`／`min`／`max` 物件會被拒絕。
 
 所有 IP 欄位都支援 `random_file`，每次發送逐筆從文字檔抽一個位址：
 
@@ -145,7 +147,7 @@ IPv4 prefix 預設包含網段首尾，`/24` 為 256 個位址；hosts_only 排�
 {"name":"IPV4_SRC_ADDR","value":{"random_file":"random-ips.txt"}}
 ```
 
-每行一個位址，空行與 `#` 開頭的行會略過。每個位址一律視為單一主機（/32 或 /128），`/prefix` 會被忽略。位址版本須與欄位相符。相對路徑以 JSON 檔所在資料夾為準。檔案上限 8 MiB，只算一個設定值。
+每行一個位址，空行與 `#` 開頭的行會略過。每行必須是純 IP 位址；CIDR prefix 會被拒絕，並列出檔案路徑與行號。位址版本須與欄位相符。相對路徑以 JSON 檔所在資料夾為準。檔案上限 8 MiB，只算一個設定值。
 
 ## TCP flags
 
@@ -174,6 +176,8 @@ IPv4 prefix 預設包含網段首尾，`/24` 為 256 個位址；hosts_only 排�
 
 ## ASN、ICMP 與 MPLS
 
+ASN 的點與 RD 的冒號前後可有空白，例如 `"AS1 . 10"`、`"65000 : 100"`。
+
 | 類型 | 可用 value 範例 | 限制 |
 |---|---|---|
 | ASN | `65000`、`"AS65000"`、`"1.10"`、`"AS1.10"` | 0～4294967295；asdot 的兩部分各 0～65535，1.10＝65546 |
@@ -195,7 +199,7 @@ IPv4 prefix 預設包含網段首尾，`/24` 為 256 個位址；hosts_only 排�
 
 ICMP 的 type 可用整數或以上名稱。IPv4 ICMP 設 PROTOCOL＝1，IPv6 ICMP 設 PROTOCOL＝58；CLI 的 ICMP range 也會經過單一值編碼，HTML 只接受合併整數端點。
 
-MPLS label 以 3 bytes 匯出，不含 TTL；手動欄位不會自動補 BoS 或 stack metadata。原始 stack 每層為 4 bytes，所以兩層的 MPLS_LABEL_STACK_LENGTH 為 8。RD 固定 8 bytes，其 ASN 部分可用 AS 前綴／asdot；未指定 type 時，IPv4 管理者選 Type 1，ASN≤65535 選 Type 0，其餘選 Type 2。CLI 的 `mpls_stack` 是 flow 層級簡寫，不是 field name，詳見 [MPLS 設定](README.zh-TW.md#mpls-設定)。
+MPLS label 與 stack metadata 必須明列於 `fields`，不再接受 flow 層級的 `mpls_stack`。MPLS label 以 3 bytes 匯出，不含 TTL；手動欄位不會自動補 BoS 或 stack metadata。原始 stack 每層為 4 bytes，所以兩層的 MPLS_LABEL_STACK_LENGTH 為 8。RD 固定 8 bytes，其 ASN 部分可用 AS 前綴／asdot；未指定 type 時，IPv4 管理者選 Type 1，ASN≤65535 選 Type 0，其餘選 Type 2。詳見 [MPLS 設定](README.zh-TW.md#mpls-設定)。
 
 ## 計數器與 Collector 每分鐘預期平均速率
 
@@ -222,4 +226,4 @@ Template         IN bps         IN pps        OUT bps        OUT pps
 
 JSON 的四個計數器都保存實際值，不支援公式。HTML 可讓 IN_BYTES／OUT_BYTES 以「同方向 PKTS × 平均封包大小」計算，但只支援單一 PKTS，且匯出後是一般 BYTES 整數；連動設定僅隨草稿保留，見 [IN／OUT 計數器](README.zh-TW.md#inout-計數器)。
 
-本文件列的是 CLI JSON 接受的格式；HTML 不支援匯入 `mpls_stack`、含名稱／物件的 ICMP range 或超過 JavaScript 安全整數的值。一般欄位值不會改變實際 UDP 的來源／目的 IP、port 或發送網卡；這些由 CLI 參數決定。
+本文件列的是 CLI JSON 接受的格式；HTML 不支援匯入 `random_file`、含名稱／物件的 ICMP range 或超過 JavaScript 安全整數的值。一般欄位值不會改變實際 UDP 的來源／目的 IP、port 或發送網卡；這些由 CLI 參數決定。

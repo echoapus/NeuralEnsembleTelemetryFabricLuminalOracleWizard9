@@ -6,6 +6,8 @@ Configuration: [examples/collector-all-fields.json](examples/collector-all-field
 
 These instructions assume a Linux or Windows WSL2 PC and nfdump/nfcapd installed on the collector. This project currently builds Linux executables; Windows users should build and run in WSL2. IPv4/IPv6 addresses inside records are simulated, need not be configured on the PC, and do not receive connections. Actual UDP packets go only to `--target`.
 
+The fixture uses explicit MPLS label and metadata entries in `fields`. Keep their values and order when adapting it; stack metadata and BoS are not inferred. For older configurations, see [Updating older configurations](README.md#updating-older-configurations).
+
 ## Start the collector
 
 Run on the collector and retain the versions:
@@ -83,7 +85,7 @@ After verifying ten cycles, test continuous sending separately. This command has
 
 Only exactly `--duration 0` enables unlimited mode until Ctrl-C/SIGTERM. Other zero/tiny forms such as `0.0`, `-0`, and `1e-400` are rejected. count and duration conflict. Manual interruption exits 130, invalid arguments exit 2, and transport/statistics failures exit 1.
 
-When stdout and stderr are terminals, progress updates in place. With redirection, stderr receives actual cumulative packets, records, UDP payload bytes, and average rate every five seconds. Read with `tail -f send.log` in another terminal. Statistics write/flush failures stop sending and preserve the first error. If stderr also fails, the message may be lost but the program does not panic. This differs from normal successful exit on a closed stdout pipe.
+When stdout and stderr are terminals, progress updates in place. With redirection, stderr receives actual cumulative packets, records, UDP payload bytes, and average rate every five seconds. Progress checks also run within large bursts and initial template sends, with callbacks at most every 250 ms. Reaching count or duration stops further per-packet progress callbacks. Read with `tail -f send.log` in another terminal. Statistics write/flush failures stop sending and preserve the first error. If stderr also fails, the message may be lost but the program does not panic. This differs from normal successful exit on a closed stdout pipe.
 
 ## Stop collection and read completed files
 

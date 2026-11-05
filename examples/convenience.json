@@ -22,15 +22,16 @@
     },
     {
       "template_id": 602,
-      "mpls_stack": [
-        {"label": 16000, "tc": 3},
-        24000
-      ],
       "fields": [
         {"name": "IPV4_SRC_ADDR", "value": "192.0.2.1"},
         {"name": "IPV4_DST_ADDR", "value": "198.51.100.2"},
         {"name": "L4_DST_PORT", "value": {"start": 10000, "end": 10002}},
-        {"name": "MPLS_TOP_LABEL_TTL", "value": 64}
+        {"name": "MPLS_TOP_LABEL_TTL", "value": 64},
+        {"name": "MPLS_LABEL_1", "value": {"label": 16000, "tc": 3, "bos": false}},
+        {"name": "MPLS_LABEL_2", "value": {"label": 24000, "tc": 0, "bos": true}},
+        {"name": "MPLS_LABEL_STACK_DEPTH", "value": 2},
+        {"name": "MPLS_LABEL_STACK_LENGTH", "value": 8},
+        {"name": "MPLS_TOP_LABEL_EXP", "value": 3}
       ]
     }
   ]

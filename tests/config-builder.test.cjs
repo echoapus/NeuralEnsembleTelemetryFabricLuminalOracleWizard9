@@ -78,7 +78,7 @@ function rejects(input,pattern){assert.throws(()=>build(input),pattern);}
   counter.min='2';counter.max='1';rejects(one(counter),/minimum/);
   counter.min='-1';counter.max='2';rejects(one(counter),/integer/);
   counter.min='1.5';rejects(one(counter),/integer/);
-  assert.throws(()=>importConfig(JSON.stringify({flows:[{template_id:256,fields:[{name,value:{random:true}}]}]})),/random.*L4 port/);
+  assert.throws(()=>importConfig(JSON.stringify({flows:[{template_id:256,fields:[{name,value:{random:true}}]}]})),/value must be a string or integer/);
  }
  const many=makeRow('IN_BYTES');many.mode='range';many.start='0';many.end='499999';many.step='1';assert.equal(validate(one(many)).records,500000);many.end='500000';rejects(one(many),/500,000/);
  many.end='499999';const flow=one(many).flows[0];const two=makeRow('IN_PKTS');two.mode='list';two.items=[{value:'1'},{value:'2'}];flow.fields.push(two);rejects(model(flow),/500,000/);
@@ -107,7 +107,12 @@ function rejects(input,pattern){assert.throws(()=>build(input),pattern);}
   assert.deepEqual(plain(build(importConfig(config(input))).config.flows[0].fields[0].value),expected);
  }
  const random={flows:[{template_id:256,fields:[{name:'l4_src_port',value:{random:true}}]}]};
- assert.deepEqual(plain(build(importConfig(JSON.stringify(random))).config.flows[0].fields[0].value),{random_between:[1,65535]});
+ assert.throws(()=>importConfig(JSON.stringify(random)),/value must be a string or integer/);
+ const convenience=JSON.parse(fs.readFileSync(path.join(root,'examples/convenience.json'),'utf8'));
+ const imported=build(importConfig(JSON.stringify(convenience)));
+ assert.equal(imported.records,11);assert.equal(imported.templates,3);
+ const mpls=fields=>fields.filter(field=>field.name.startsWith('MPLS_'));
+ assert.deepEqual(plain(mpls(imported.config.flows[2].fields)),mpls(convenience.flows[2].fields));
  assert.throws(()=>importConfig(fs.readFileSync(path.join(root,'examples/random-ips.json'),'utf8')),/random_file is only supported in the CLI; nothing was imported/);
  assert.throws(()=>importConfig(JSON.stringify({flows:[{template_id:256,fields:[{name:'PROTOCOL',value:1.5}]}]})),/Enter a nonnegative integer/);
  const invalidImports=[

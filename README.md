@@ -10,6 +10,7 @@
 | Generate JSON in a browser | [Offline HTML builder](config-builder.html) |
 | Test every field | [All-fields configuration](examples/collector-all-fields.json), [collector test guide](COLLECTOR-TEST.md) |
 | Look up field IDs, lengths, and input rules | [Configuration format](#configuration-format), [complete field/value reference](field.md) |
+| Compare value formats by field | [Field/value support matrix](FIELD-SUPPORT.md) |
 | Find send options, unlimited runs, and logs | [CLI](#cli), [Continuous sending and logs](#continuous-sending-and-logs) |
 | Estimate collector rates | [Expected collector average rates per minute](#expected-collector-average-rates-per-minute) |
 | Check combinations, RAM, and limits | [Record counts, packets, and configuration limits](#record-counts-packets-and-configuration-limits), [Memory usage](#memory-usage) |
@@ -240,7 +241,7 @@ Open [config-builder.html](config-builder.html) in a modern browser. The page wo
 
 See [IN/OUT counters](#inout-counters) for linked IN_BYTES/OUT_BYTES controls and JSON syntax.
 
-Import does not silently skip unknown content. Unknown properties, the `mpls_stack` shorthand, `random_file` IP pools, ICMP ranges with named or object endpoints, and integers that cannot be represented exactly are rejected while preserving the existing form. Valid CLI configurations with these features can still be used from the command line. HTML range steps are limited to `9007199254740991`; the CLI accepts larger u64 steps. ASNs, RDs, and IP prefixes are normalized to equivalent formats before export.
+Import does not silently skip unknown content. Unknown properties, `random_file` IP pools, ICMP ranges with named or object endpoints, and integers that cannot be represented exactly are rejected while preserving the existing form. Valid CLI configurations with these features can still be used from the command line. HTML range steps are limited to `9007199254740991`; the CLI accepts larger u64 steps. ASNs, RDs, and IP prefixes are normalized to equivalent formats before export.
 
 Drafts exist only in the current browser. Enable autosave again each time you open the page. Turning autosave off keeps the existing draft; deleting the draft also disables autosave. Storage restrictions or insufficient space produce an error. Downloading clears the leave-page reminder, but confirm that the file was saved. Copying JSON does not clear the reminder. If clipboard access is restricted, the page selects the JSON for manual copying.
 
@@ -278,7 +279,7 @@ JSON structural keys are fixed, including `source_id`, `flows`, `template_id`, `
 | `source_id` | Optional; default 0; range `0..=4294967295`; not a source IP |
 | `flows` | At least one; values expand independently per flow; flows may share a template |
 | `template_id` | `256..=65535`; shared IDs require identical scope, field names, order, and lengths |
-| `fields` | Ordered field array; at least one field unless using `mpls_stack` |
+| `fields` | Ordered field array; at least one field |
 | `scope` | Optional; a nonempty scope creates Options templates/data and is encoded before regular fields |
 | `name`, `value` | Both required for every field; scope and fields each reject duplicate names |
 | File size limit | 8 MiB |
@@ -438,7 +439,15 @@ Add these entries to `fields` to test 32-bit ifIndexes, ASNs, and BGP next hops:
 ]
 ```
 
-`AS1.10` equals 65546. Records containing IPv6 traffic can be transported over IPv4 UDP; JSON addresses and the actual transport version are configured separately.
+`AS1.10` equals 65546. ASN dots and RD colons allow surrounding whitespace, so `"AS1 . 10"` and `"65000 : 100"` are accepted. Records containing IPv6 traffic can be transported over IPv4 UDP; JSON addresses and the actual transport version are configured separately.
+
+### Updating older configurations
+
+Older configuration syntax is no longer accepted:
+
+- Replace `{"random":true,"min":49152,"max":65535}` with `{"random_between":[49152,65535]}`. Specify both bounds; if the old bounds were omitted, use `[1,65535]`.
+- Replace flow-level `mpls_stack` with explicit label and metadata entries in `fields`. Preserve field order, label TC/BoS, stack depth, stack length, and top-label EXP; see [convenience.json](examples/convenience.json).
+- In `random_file` lists, use plain IP addresses. To preserve the former single-host behavior, change `198.51.100.0/24` to `198.51.100.0`. A list entry does not expand a subnet.
 
 ### Random L4 ports, packet counts, and bytes
 
@@ -452,7 +461,7 @@ Add these entries to `fields` to test 32-bit ifIndexes, ASNs, and BGP next hops:
 
 Bounds are inclusive and min≤max. L4 ports must be integers in `0..=65535`; IN_PKTS/IN_BYTES must be in `0..=4294967295`. Equal bounds produce a fixed value. Every record is resampled on every send, including repeated packets; duplicates are allowed. Fields are sampled independently without enforcing a packets/bytes ratio. Only record values change, not actual UDP ports.
 
-Only L4 ports also accept the legacy `{"random":true,"min":49152,"max":65535}` format. Omitted bounds default to 1–65535. Do not combine it with random_between. `validate` and `preview` do not sample; preview hex uses min. Send uses buffered `/dev/urandom` with no fixed seed. Per-record sampling adds work, so fixed-packet performance estimates do not apply.
+`validate` and `preview` do not sample; preview hex uses min. Send uses buffered `/dev/urandom` with no fixed seed. Per-record sampling adds work, so fixed-packet performance estimates do not apply.
 
 ### Random IP addresses from a file
 
@@ -462,7 +471,7 @@ Any IP field accepts `{"random_file":"PATH"}`. Each record draws one line from t
 {"name":"IPV4_SRC_ADDR","value":{"random_file":"random-ips.txt"}}
 ```
 
-Put one address per line. Blank lines and lines starting with `#` are skipped. Every entry is sent as a single host (/32 or /128); a `/prefix` is ignored, so `198.51.100.0/24` sends `198.51.100.0`. The address version must match the field. Relative paths are resolved against the JSON file's folder. The file must not exceed 8 MiB, and it counts as one configured value. Preview hex uses the first address. See `examples/random-ips.json`.
+Put one address per line. Blank lines and lines starting with `#` are skipped. Each entry must be a plain IP address; CIDR prefixes such as `198.51.100.0/24` are rejected. The address version must match the field. Relative paths are resolved against the JSON file's folder. Invalid entries report the file path and line number. The file must not exceed 8 MiB, and it counts as one configured value. Preview hex uses the first address. See `examples/random-ips.json`.
 
 ### TCP flags, ASNs, and ICMP
 
@@ -507,19 +516,7 @@ Manual fields use actual label values; do not shift them beforehand:
 
 Labels range from 0 to 1048575, TC from 0 to 7, and BoS marks the bottom of the stack. Plain integer labels use TC=0 and BoS=false. Each label section exports 3 bytes as `(label << 4) | (tc << 1) | bos`, without TTL. Use `MPLS_TOP_LABEL_TTL` for TTL. Manual fields do not infer BoS, depth, length, or EXP.
 
-The CLI `mpls_stack` shorthand generates a consecutive stack:
-
-```json
-{
-  "flows": [
-    {"template_id":602,"mpls_stack":[{"label":16000,"tc":3},24000]}
-  ]
-}
-```
-
-This complete configuration produces two labels, with BoS=true only on the last one, plus depth=2, length=8, and EXP=3. Stack length uses the original four bytes per MPLS layer, rather than the exported 3-byte section. A stack supports 1–10 fixed integer or `{label,tc}` entries. Per-entry bos, ttl, ranges, and array expansion are not accepted.
-
-You may additionally put IPs, ports, RDs, FEC, and TTL in fields; generated fields follow the original fields. With mpls_stack, do not manually provide MPLS_LABEL_1–10, DEPTH, LENGTH, or EXP fields. HTML uses manual labels and does not import this shorthand.
+Set each `MPLS_LABEL_1`–`MPLS_LABEL_10` and any stack metadata explicitly in `fields`, as shown in [convenience.json](examples/convenience.json). Set BoS=true only on the last label. Stack length uses the original four bytes per MPLS layer, rather than the exported 3-byte section.
 
 RDs are fixed at 8 bytes and encoded according to [RFC 4364 §4.2](https://www.rfc-editor.org/rfc/rfc4364.html#section-4.2):
 
@@ -608,7 +605,7 @@ Either refresh threshold triggers all templates before the next data packet. Eac
 
 Before sending, the plan shows source/destination, configuration summary, mode/rate/stop condition, UDP payload range, refresh rules, and rates by template. Use `nfgen preview CONFIG --template-id ID` for structure, first/last values, and random ranges. When stdout and stderr are terminals, progress updates in place. If either is redirected, stderr receives statistics every five seconds without terminal control codes: elapsed seconds, cumulative packets/records/bytes, and average packet rate. Use `--duration 0 >send.log 2>&1` to log continuous runs. Completion or Ctrl-C/SIGTERM produces a two-line summary of elapsed hours/minutes/seconds, data/template packets, records, UDP payload MiB, and average data packets/s. Transport errors immediately report failure without a normal completion summary.
 
-High stream rates depend on scheduler precision. Burst reduces individual waiting overhead without guaranteeing the target rate. Configurations and packets are prepared once rather than copied by count. random_between fields are rewritten before sending. FIRST_SWITCHED/LAST_SWITCHED remain configured values and do not update with time.
+High stream rates depend on scheduler precision. Burst reduces individual waiting overhead without guaranteeing the target rate. Configurations and packets are prepared once rather than copied by count. random_between and random_file fields are rewritten before sending. FIRST_SWITCHED/LAST_SWITCHED remain configured values and do not update with time.
 
 ### Continuous sending and logs
 
@@ -755,7 +752,7 @@ These 53 regular field IDs, lengths, and types are defined in [src/fields.rs](sr
 | [options.json](examples/options.json) | Sampling Options with multiple scopes |
 | [asn.json](examples/asn.json) | ASN notation and RDs |
 | [mpls.json](examples/mpls.json) | Manual labels, RDs, IPv4/IPv6 FEC, and metadata |
-| [convenience.json](examples/convenience.json) | ICMP, prefixes, ranges, and automatic MPLS stacks |
+| [convenience.json](examples/convenience.json) | ICMP, prefixes, ranges, and explicit MPLS stack fields |
 | [collector-all-fields.json](examples/collector-all-fields.json) | All 53 regular fields and five scopes across 14 templates |
 
 The all-fields configuration has 14 data packets and 22 records per cycle: 17 regular flow records and five Options records. Start the collector on the destination port, then run:
@@ -779,7 +776,7 @@ See [COLLECTOR-TEST.md](COLLECTOR-TEST.md) for field coverage, expected groups, 
 
 ## JSON size and distribution
 
-`collector-all-fields.json` is 15,629 bytes. Removing indentation produces 7,259 bytes, about 53.6% smaller, with equivalent configuration and packet contents. Only whitespace is removed; keys remain name/value. Prefixes, ranges, and mpls_stack can reduce repetition but must preserve the intended fields and values. Changing field order or switching to mpls_stack can change templates or add metadata, so these are not universally lossless substitutions.
+`collector-all-fields.json` is 15,629 bytes. Removing indentation produces 7,259 bytes, about 53.6% smaller, with equivalent configuration and packet contents. Only whitespace is removed; keys remain name/value. Prefixes and ranges can reduce repetition but must preserve the intended fields and values. Changing field order changes templates, so these are not universally lossless substitutions.
 
 Use Python to remove indentation, then validate the result. Running nfgen itself does not require Python:
 
@@ -811,7 +808,7 @@ Distribute the release executable, required JSON, HTML, and documentation. Sourc
 | Shared template structures differ | Scope, names, order, and lengths must match; change values only or assign a new ID |
 | Collector cannot find a template | Start with all; for separate templates/data runs, fix the source and source_id and check definitions |
 | Invalid JSON | Use double quotes; remove comments/trailing commas; do not abbreviate name/value to n/v |
-| random_file cannot be read | Relative paths resolve against the JSON file's folder, not the current directory; the file must be UTF-8 and at most 8 MiB |
+| random_file cannot be read | Relative paths resolve against the JSON file's folder, not the current directory; use UTF-8, at most 8 MiB, and one plain IP per line without CIDR prefixes; check the reported path and line number |
 | Wrong IP version | Match IPv4/IPv6 values to their fields; transport and record IP versions are configured separately |
 | More than 500,000 expanded records | Multiply value counts per field, then sum all flows; random_between and random_file each count as one value |
 | Template or record does not fit | Increase packet-size reasonably or reduce fields, while respecting path MTU |
@@ -832,11 +829,10 @@ For issue reports, retain the command, nfgen and collector versions, send summar
 cargo test --locked
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
-node tests/config-builder.test.cjs
-node tests/build-script.test.cjs
+node --test tests/*.test.cjs
 ```
 
-Default Rust tests cover validation, field encoding, packet splitting, shared templates and refresh, collector rates by template, scheduling, cancellation, CLI behavior, and full field coverage. They also check duration underflow rejection, stopping on statistics write/flush/BrokenPipe failures, and avoiding panics when stderr fails. Node.js is only needed for development tests. Tests cover 120 generation cases and import/export round trips, IN/OUT calculations, the 500,000-record boundary, and event handling with DOM stubs. They do not replace browser layout, native dialogs, clipboard, or download tests.
+Default Rust tests cover validation, field encoding, packet splitting, shared templates and refresh, collector rates by template, scheduling, cancellation, CLI behavior, and full field coverage. They also check duration underflow rejection, stopping on statistics write/flush/BrokenPipe failures, avoiding panics when stderr fails, progress and cancellation within slow bursts, and completing count/duration runs without a trailing progress callback. Configuration tests reject removed syntax and CIDR entries in IP pools; CLI checks validate all 13 bundled JSON examples and the random-file preview. Node.js is only needed for development tests. Tests cover generation cases and import/export round trips, IN/OUT calculations, the 500,000-record boundary, and event handling with DOM stubs. They do not replace browser layout, native dialogs, clipboard, or download tests.
 
 The build-script checks simulate distributions, package managers, and Rust installation without changing the host system. They cover tool reuse, sudo boundaries, download/build failures, and invocation from paths containing spaces.
 

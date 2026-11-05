@@ -10,6 +10,7 @@
 | 在瀏覽器填表產生 JSON | [離線 HTML 產生器](config-builder.html) |
 | 測試全部欄位 | [全欄位設定](examples/collector-all-fields.json)、[測試手冊](COLLECTOR-TEST.zh-TW.md) |
 | 查欄位 ID、長度與輸入規則 | [設定格式](#設定格式)、[完整 field name／value 表](field.zh-TW.md) |
+| 逐欄比較支援的 value 格式 | [Field/value support matrix（英文）](FIELD-SUPPORT.md) |
 | 查發送參數、無限執行與日誌 | [CLI](#cli)、[持續發送與日誌](#持續發送與日誌) |
 | 查 Collector 每分鐘預期平均速率 | [Collector 每分鐘預期平均速率](#collector-每分鐘預期平均速率) |
 | 查組合數、RAM 與限制 | [紀錄數、封包數與設定上限](#紀錄數封包數與設定上限)、[記憶體用量](#記憶體用量) |
@@ -242,7 +243,7 @@ sudo tcpdump -ni any -s 0 -w /tmp/nfgen-test.pcap 'udp dst port 7777'
 
 `IN_BYTES`、`OUT_BYTES` 的連動操作與 JSON 寫法見 [IN／OUT 計數器](#inout-計數器)。
 
-匯入不會略過未知內容。未知屬性、`mpls_stack` 簡寫、`random_file` IP 位址池、含名稱或物件的 ICMP range，以及無法精確表示的大整數會被拒絕，原表單保留；這些有效的 CLI 設定仍可用命令列操作。HTML 的 range step 上限為 `9007199254740991`，CLI 可讀取更大的 u64 step。ASN、RD 與 IP prefix 匯出前會正規化為等值的格式。
+匯入不會略過未知內容。未知屬性、`random_file` IP 位址池、含名稱或物件的 ICMP range，以及無法精確表示的大整數會被拒絕，原表單保留；這些有效的 CLI 設定仍可用命令列操作。HTML 的 range step 上限為 `9007199254740991`，CLI 可讀取更大的 u64 step。ASN、RD 與 IP prefix 匯出前會正規化為等值的格式。
 
 草稿只存在目前瀏覽器。每次開啟頁面需重新勾選自動儲存；取消勾選保留既有草稿，刪除草稿會同時關閉自動儲存。瀏覽器禁止儲存或空間不足時會提示失敗。下載後會清除離頁提醒，仍須確認檔案已儲存；複製 JSON 不會清除提醒。若剪貼簿操作受限，頁面會選取 JSON，讓你手動複製。
 
@@ -280,7 +281,7 @@ JSON 的結構鍵名固定，例如 `source_id`、`flows`、`template_id`、`fie
 | `source_id` | 可省略，預設 0，範圍 `0..=4294967295`；不是來源 IP |
 | `flows` | 至少一項；每項的值獨立展開，可共用同一個 Template |
 | `template_id` | `256..=65535`；相同 ID 的 scope、欄位名稱、順序與長度必須一致 |
-| `fields` | 有順序的欄位陣列；未使用 `mpls_stack` 時至少一項 |
+| `fields` | 有順序的欄位陣列；至少一項 |
 | `scope` | 可省略；非空時建立 Options Template／Data，先於一般 fields 編碼 |
 | `name`、`value` | 每個欄位都必須提供；scope 與 fields 各自拒絕重複名稱 |
 | 檔案上限 | 8 MiB |
@@ -440,7 +441,15 @@ IPv4 next-hop 使用 `IPV4_NEXT_HOP`、`BGP_IPV4_NEXT_HOP`；IPv6 使用 `IPV6_N
 ]
 ```
 
-`AS1.10` 等於 65546。紀錄內的 IPv6 流量可透過 IPv4 UDP 傳送；JSON 位址與真正傳輸版本分開設定。
+`AS1.10` 等於 65546。ASN 的點與 RD 的冒號前後可有空白，例如 `"AS1 . 10"`、`"65000 : 100"` 都可接受。紀錄內的 IPv6 流量可透過 IPv4 UDP 傳送；JSON 位址與真正傳輸版本分開設定。
+
+### 更新舊設定
+
+舊設定語法已不再接受：
+
+- 將 `{"random":true,"min":49152,"max":65535}` 改為 `{"random_between":[49152,65535]}`。上下限都必須明列；舊設定若省略上下限，請使用 `[1,65535]`。
+- 將 flow 層級的 `mpls_stack` 改為 `fields` 中明確的 label 與 metadata 欄位。保留欄位順序、label 的 TC／BoS、stack depth、stack length 與 top-label EXP，範例見 [convenience.json](examples/convenience.json)。
+- `random_file` 清單只接受純 IP。若要保留舊版的單一主機行為，將 `198.51.100.0/24` 改為 `198.51.100.0`；清單項目不會展開網段。
 
 ### 隨機 L4 port、封包數與 bytes
 
@@ -454,7 +463,7 @@ IPv4 next-hop 使用 `IPV4_NEXT_HOP`、`BGP_IPV4_NEXT_HOP`；IPv6 使用 `IPV6_N
 
 上下限都包含且 min≤max；L4 port 須為 `0..=65535`，IN_PKTS／IN_BYTES 須為 `0..=4294967295` 的整數。min=max 為固定值。每次發送逐筆重抽，重送同一包也重抽，允許重複。各欄位獨立抽樣，不會自動維持 packets 與 bytes 的比例；只改紀錄欄位，不改實際 UDP 的來源／目的 port。
 
-僅 L4 port 另支援舊寫法 `{"random":true,"min":49152,"max":65535}`，省略 min/max 時為 1～65535；不可與 random_between 混用。`validate`、`preview` 不抽樣，preview hex 使用 min 占位。send 使用緩衝的 `/dev/urandom`，沒有固定 seed；逐筆抽樣有額外成本，不能套用固定封包的效能估計。
+`validate`、`preview` 不抽樣，preview hex 使用 min 占位。send 使用緩衝的 `/dev/urandom`，沒有固定 seed；逐筆抽樣有額外成本，不能套用固定封包的效能估計。
 
 ### 從檔案隨機取 IP
 
@@ -464,7 +473,7 @@ IPv4 next-hop 使用 `IPV4_NEXT_HOP`、`BGP_IPV4_NEXT_HOP`；IPv6 使用 `IPV6_N
 {"name":"IPV4_SRC_ADDR","value":{"random_file":"random-ips.txt"}}
 ```
 
-每行一個位址，空行與 `#` 開頭的行會略過。每個位址一律視為單一主機（/32 或 /128）；`/prefix` 會被忽略，例如 `198.51.100.0/24` 會送出 `198.51.100.0`。位址版本必須與欄位相符。相對路徑以 JSON 檔所在資料夾為準。檔案上限 8 MiB，只算一個設定值。preview hex 使用第一個位址。範例見 `examples/random-ips.json`。
+每行一個位址，空行與 `#` 開頭的行會略過。每行必須是純 IP 位址；不接受 `198.51.100.0/24` 這類 CIDR prefix。位址版本必須與欄位相符。相對路徑以 JSON 檔所在資料夾為準。無效項目會列出檔案路徑與行號。檔案上限 8 MiB，只算一個設定值。preview hex 使用第一個位址。範例見 `examples/random-ips.json`。
 
 ### TCP flags、ASN 與 ICMP
 
@@ -539,19 +548,7 @@ IPv4 ICMP 請設 `PROTOCOL` 為 1 並使用 `ICMP_TYPE`，IPv6 ICMP 請設 `PROT
 
 Label 範圍 0～1048575，TC 為 0～7，BoS 表示 stack 底層。直接填整數時 TC＝0、BoS＝false。每個 label section 匯出 3 bytes，編碼為 `(label << 4) | (tc << 1) | bos`，不含 TTL；TTL 使用 `MPLS_TOP_LABEL_TTL`。手動欄位不會自動推算 BoS、depth、length 或 EXP。
 
-CLI 可用 `mpls_stack` 自動建立連續 stack：
-
-```json
-{
-  "flows": [
-    {"template_id":602,"mpls_stack":[{"label":16000,"tc":3},24000]}
-  ]
-}
-```
-
-此完整設定會產生兩層 label，只有最後一層 BoS=true；並加入 depth＝2、length＝8、EXP＝3。Stack 長度按原始 MPLS 每層 4 bytes 計算，不是匯出的 3-byte section 長度。支援 1～10 層，各層僅固定整數或 `{label,tc}`；不接受 bos、ttl、range 或陣列展開。
-
-可另外在 fields 放 IP、port、RD、FEC 與 TTL；自動欄位附加在原 fields 之後。使用 mpls_stack 時，不可手動提供任何 MPLS_LABEL_1～10、DEPTH、LENGTH 或 EXP 欄位。HTML 使用手動 label 形式，不匯入這項簡寫。
+在 `fields` 明確設定各層 `MPLS_LABEL_1`～`MPLS_LABEL_10` 與需要的 stack metadata，範例見 [convenience.json](examples/convenience.json)。只有最後一層設 BoS=true；stack 長度按原始 MPLS 每層 4 bytes 計算，不是匯出的 3-byte section 長度。
 
 RD 固定 8 bytes，依 [RFC 4364 §4.2](https://www.rfc-editor.org/rfc/rfc4364.html#section-4.2) 編碼：
 
@@ -610,7 +607,7 @@ nfgen send CONFIG [OPTIONS]
 
 發送前只列來源／目的、設定摘要、模式／速率／停止條件、UDP payload 範圍、Template 刷新規則與逐 Template 的流量表。欄位結構、首尾值及隨機範圍不在 send 重複列出，請用 `nfgen preview CONFIG --template-id ID` 查看。stdout 與 stderr 都連接終端機時，進度會原地更新；任一串流重新導向時，每 5 秒向 stderr 輸出一行統計（執行秒數、累積封包／紀錄／bytes，以及平均封包速率），不含終端機控制碼。可用 `--duration 0 >send.log 2>&1` 保存持續發送的紀錄。完成或 Ctrl-C／SIGTERM 中斷會輸出兩行摘要：累計時分秒、Data／Template 包數，以及紀錄數、UDP payload MiB、平均 Data 包/s；傳輸錯誤立即回報失敗，不輸出正常完成摘要。
 
-Stream 高速率受系統排程精度限制；burst 可降低逐包等待成本，但不保證達到設定速率。設定與封包預先建立，不按 count 複製清單；random_between 欄位另在發送前改寫。FIRST_SWITCHED／LAST_SWITCHED 等紀錄欄位保持設定值，不會隨時間更新。
+Stream 高速率受系統排程精度限制；burst 可降低逐包等待成本，但不保證達到設定速率。設定與封包預先建立，不按 count 複製清單；random_between 與 random_file 欄位另在發送前改寫。FIRST_SWITCHED／LAST_SWITCHED 等紀錄欄位保持設定值，不會隨時間更新。
 
 ### 持續發送與日誌
 
@@ -757,7 +754,7 @@ nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 | [options.json](examples/options.json) | 多 scope 取樣 Options |
 | [asn.json](examples/asn.json) | ASN 表示法與 RD |
 | [mpls.json](examples/mpls.json) | 手動 label、RD、IPv4／IPv6 FEC 與 metadata |
-| [convenience.json](examples/convenience.json) | ICMP、prefix、range、自動 MPLS stack |
+| [convenience.json](examples/convenience.json) | ICMP、prefix、range、明確設定的 MPLS stack 欄位 |
 | [collector-all-fields.json](examples/collector-all-fields.json) | 全部 53 個一般欄位、5 種 scope，共 14 個 Template |
 
 全欄位設定每輪 14 包 Data、22 筆紀錄：17 筆一般流量＋5 筆 Options。先啟動目的 port 的 collector，再執行：
@@ -781,7 +778,7 @@ nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 
 ## JSON 大小與發行
 
-`collector-all-fields.json` 為 15,629 bytes；自行移除縮排後為 7,259 bytes，約少 53.6%，設定及封包內容等值。只有空白被省略，鍵名仍是 name/value。減少設定重複可使用 prefix、range 或 mpls_stack；這些寫法仍須保留想測試的欄位與值。修改欄位順序、改用 mpls_stack 也可能改變 Template 或新增 metadata，不能當成任意設定的無損替換。
+`collector-all-fields.json` 為 15,629 bytes；自行移除縮排後為 7,259 bytes，約少 53.6%，設定及封包內容等值。只有空白被省略，鍵名仍是 name/value。減少設定重複可使用 prefix 或 range；這些寫法仍須保留想測試的欄位與值。修改欄位順序會改變 Template，不能當成任意設定的無損替換。
 
 可用 Python 移除 JSON 縮排，轉檔後再驗證；nfgen 執行本身不需要 Python：
 
@@ -813,7 +810,7 @@ Release 已啟用 `lto="thin"`、`codegen-units=1`、`strip=true`，沒有導入
 | 共用 Template 結構不一致 | 相同 ID 的 scope、欄位名稱、順序與長度須一致；只改值，或為不同結構指定新 ID |
 | collector 找不到 Template | 首次使用 all；若分程序送 templates/data，固定來源與 source_id，並核對 Template 定義 |
 | JSON 格式錯誤 | 使用雙引號，移除註解、尾端逗號；name/value 不可縮成 n/v |
-| random_file 讀不到 | 相對路徑以 JSON 檔所在資料夾為準，不是目前目錄；檔案須為 UTF-8，上限 8 MiB |
+| random_file 讀不到 | 相對路徑以 JSON 檔所在資料夾為準，不是目前目錄；檔案須為 UTF-8、上限 8 MiB，每行純 IP、不含 CIDR prefix；依錯誤中的路徑與行號檢查 |
 | IP 版本不符 | IPv4 欄位填 IPv4，IPv6 欄位填 IPv6；真實傳輸版本與紀錄版本分開設定 |
 | 設定超過 500,000 筆 | 按各欄位值數相乘再加總所有 flow；random_between 與 random_file 各算一個設定值 |
 | Template 或單筆紀錄放不下 | 合理提高 packet-size 或減少欄位；仍需符合實際路徑 MTU |
@@ -834,11 +831,10 @@ Release 已啟用 `lto="thin"`、`codegen-units=1`、`strip=true`，沒有導入
 cargo test --locked
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
-node tests/config-builder.test.cjs
-node tests/build-script.test.cjs
+node --test tests/*.test.cjs
 ```
 
-Rust 預設測試涵蓋設定驗證、欄位編碼、分包、Template 共用與刷新、分組 Collector 每分鐘預期平均速率、排程、取消、CLI 與全欄位設定覆蓋；另驗證 duration 浮點下溢拒絕、統計寫入／flush／BrokenPipe 失敗時停止，以及 stderr 無法寫入時不 panic。Node.js 僅供開發測試；測試涵蓋 120 組生成與匯入／匯出往返，另含 IN／OUT 連動計算與 500,000 筆邊界檢查，以及使用 DOM 替身的事件測試，不能替代瀏覽器畫面、原生對話框、剪貼簿或下載測試。
+Rust 預設測試涵蓋設定驗證、欄位編碼、分包、Template 共用與刷新、分組 Collector 每分鐘預期平均速率、排程、取消、CLI 與全欄位設定覆蓋；另驗證 duration 浮點下溢拒絕、統計寫入／flush／BrokenPipe 失敗時停止，stderr 無法寫入時不 panic、慢速 burst 內的進度回報與取消，以及 count／duration 結束後不再呼叫進度回報。設定測試會拒絕已移除的語法與 IP 清單中的 CIDR；CLI 測試涵蓋全部 13 個內建 JSON 範例與隨機 IP 檔案預覽。Node.js 僅供開發測試；測試涵蓋生成與匯入／匯出往返，另含 IN／OUT 連動計算與 500,000 筆邊界檢查，以及使用 DOM 替身的事件測試，不能替代瀏覽器畫面、原生對話框、剪貼簿或下載測試。
 
 編譯腳本測試以模擬發行版、套件管理員與 Rust 安裝流程執行，不會變更主機系統；涵蓋工具沿用、sudo 權限界線、下載／編譯失敗，以及含空白路徑的執行方式。
 

@@ -2,6 +2,8 @@
 
 [English (en-US)](field.md) | [繁體中文 (zh-TW)](field.zh-TW.md)
 
+[Field/value support matrix (English)](FIELD-SUPPORT.md)
+
 This reference follows the current [field definitions](src/fields.rs) and [JSON validator](src/config.rs), covering **53 regular fields and five Options scopes**. See the [README](README.md) for workflows and CLI options.
 
 Multiple flows may share a `template_id` when scope and field structures match. Values expand independently without cross-flow combinations; see [shared templates](README.md#share-a-template-across-flows).
@@ -137,7 +139,7 @@ Only `L4_SRC_PORT`, `L4_DST_PORT`, `IN_PKTS`, and `IN_BYTES` support random_betw
 {"name":"IN_PKTS","value":{"random_between":[10,100]}}
 ```
 
-Bounds are inclusive and min≤max. Every record is resampled on each send; duplicates are allowed. Each field counts as one configured value. Fields are sampled independently without enforcing a PKTS/BYTES ratio. OUT_PKTS/OUT_BYTES do not support random values. Only L4 ports also accept the legacy `{"random":true,"min":1,"max":65535}` format, defaulting to 1–65535 when bounds are omitted.
+Bounds are inclusive and min≤max. Every record is resampled on each send; duplicates are allowed. Each field counts as one configured value. Fields are sampled independently without enforcing a PKTS/BYTES ratio. OUT_PKTS/OUT_BYTES do not support random values. `random_between` is the only random numeric syntax; the old `random`/`min`/`max` object is rejected.
 
 Every IP field accepts `random_file`, which draws one address per record from a text file on every send:
 
@@ -145,7 +147,7 @@ Every IP field accepts `random_file`, which draws one address per record from a 
 {"name":"IPV4_SRC_ADDR","value":{"random_file":"random-ips.txt"}}
 ```
 
-One address per line; blank lines and `#` lines are skipped. Entries are single hosts (/32 or /128): a `/prefix` is ignored. The address version must match the field. Relative paths resolve against the JSON file's folder. The file may be at most 8 MiB and counts as one configured value.
+One address per line; blank lines and `#` lines are skipped. Entries must be plain IP addresses; CIDR prefixes are rejected with the file path and line number. The address version must match the field. Relative paths resolve against the JSON file's folder. The file may be at most 8 MiB and counts as one configured value.
 
 ## TCP flags
 
@@ -174,6 +176,8 @@ Repeated flags are combined with OR. Do not concatenate full names into `"SYNACK
 
 ## ASNs, ICMP, and MPLS
 
+ASN dots and RD colons allow surrounding whitespace, such as `"AS1 . 10"` and `"65000 : 100"`.
+
 | Type | Example values | Limits |
 |---|---|---|
 | ASN | `65000`, `"AS65000"`, `"1.10"`, `"AS1.10"` | 0–4294967295; asdot parts each 0–65535; 1.10 = 65546 |
@@ -195,7 +199,7 @@ Repeated flags are combined with OR. Do not concatenate full names into `"SYNACK
 
 ICMP type accepts an integer or one of these names. Set PROTOCOL=1 for IPv4 ICMP and PROTOCOL=58 for IPv6 ICMP. CLI ICMP range endpoints pass through single-value encoding; HTML accepts only combined integer endpoints.
 
-MPLS labels export as 3 bytes without TTL. Manual fields do not fill in BoS or stack metadata automatically. Original MPLS stacks use four bytes per layer, so two layers have MPLS_LABEL_STACK_LENGTH=8. RDs are fixed at 8 bytes, and ASN administrators support AS prefixes/asdot. Without an explicit type, an IPv4 administrator selects Type 1, ASN≤65535 selects Type 0, and larger ASNs select Type 2. CLI `mpls_stack` is shorthand at the flow level, not a field name; see [MPLS configuration](README.md#mpls-configuration).
+Set MPLS labels and stack metadata explicitly in `fields`; flow-level `mpls_stack` is no longer accepted. MPLS labels export as 3 bytes without TTL. Manual fields do not fill in BoS or stack metadata automatically. Original MPLS stacks use four bytes per layer, so two layers have MPLS_LABEL_STACK_LENGTH=8. RDs are fixed at 8 bytes, and ASN administrators support AS prefixes/asdot. Without an explicit type, an IPv4 administrator selects Type 1, ASN≤65535 selects Type 0, and larger ASNs select Type 2. See [MPLS configuration](README.md#mpls-configuration).
 
 ## Counters and expected collector average rates per minute
 
@@ -222,4 +226,4 @@ These estimates assume continuous sending, complete receipt, aggregation by rece
 
 All four JSON counters store actual values, without formulas. HTML can calculate IN_BYTES/OUT_BYTES as same-direction PKTS × average packet size, but requires a single PKTS value and exports an ordinary BYTES integer. Calculation settings are retained only in drafts; see [IN/OUT counters](README.md#inout-counters).
 
-This reference describes formats accepted by CLI JSON. HTML does not import `mpls_stack`, ICMP ranges with named/object endpoints, or integers above JavaScript's safe range. Regular field values do not change actual UDP source/destination IPs, ports, or sending interfaces; CLI options control those.
+This reference describes formats accepted by CLI JSON. HTML does not import `random_file`, ICMP ranges with named/object endpoints, or integers above JavaScript's safe range. Regular field values do not change actual UDP source/destination IPs, ports, or sending interfaces; CLI options control those.

@@ -15,9 +15,6 @@ fn one(name: &str, value: Value) -> Value {
 fn word(bytes: &[u8], at: usize) -> u16 {
     u16::from_be_bytes(bytes[at..at + 2].try_into().unwrap())
 }
-fn long(bytes: &[u8], at: usize) -> u32 {
-    u32::from_be_bytes(bytes[at..at + 4].try_into().unwrap())
-}
 
 #[test]
 fn icmp_type_code_objects_and_names_have_exact_wire_bytes() {
@@ -251,78 +248,11 @@ fn prefix_and_number_ranges_share_cartesian_limits_and_packet_splitting() {
 }
 
 #[test]
-fn mpls_stack_generates_labels_bos_and_matching_metadata() {
-    let plan = build(
-        json!({"flows":[{"template_id":600,"mpls_stack":[{"label":16000,"tc":3},24000]}]}),
+fn removed_mpls_stack_syntax_is_rejected() {
+    let error = build(
+        json!({"flows":[{"template_id":600,"mpls_stack":[16],"fields":[{"name":"PROTOCOL","value":6}]}]}),
         1400,
     )
-    .unwrap();
-    assert_eq!(plan.records, 1);
-    let template = &plan.templates[0].bytes;
-    assert_eq!(word(template, 26), 5);
-    for (index, expected) in [(70, 3), (71, 3), (202, 4), (201, 4), (203, 1)]
-        .iter()
-        .enumerate()
-    {
-        assert_eq!(
-            (
-                word(template, 28 + index * 4),
-                word(template, 30 + index * 4)
-            ),
-            *expected
-        );
-    }
-    let bytes = &plan.data[0].bytes;
-    assert_eq!(&bytes[24..30], &[3, 0xe8, 6, 5, 0xdc, 1]);
-    assert_eq!((long(bytes, 30), long(bytes, 34), bytes[38]), (2, 8, 3));
-}
-
-#[test]
-fn mpls_stack_sets_bos_for_one_and_ten_layers_and_works_with_options() {
-    for count in [1, 10] {
-        let labels: Vec<_> = (16..16 + count).collect();
-        let plan=build(json!({"flows":[{"template_id":600,"mpls_stack":labels,"scope":[{"name":"INTERFACE","value":7}]}]}),1400).unwrap();
-        assert_eq!(word(&plan.templates[0].bytes, 20), 1);
-        let bytes = &plan.data[0].bytes;
-        assert_eq!(long(bytes, 24), 7);
-        for index in 0..count as usize {
-            let at = 28 + index * 3;
-            let raw = u32::from_be_bytes([0, bytes[at], bytes[at + 1], bytes[at + 2]]);
-            assert_eq!(raw >> 4, 16 + index as u32);
-            assert_eq!(raw & 1, u32::from(index + 1 == count as usize));
-        }
-        assert_eq!(long(bytes, 28 + count as usize * 3), count);
-    }
-}
-
-#[test]
-fn mpls_stack_rejects_conflicts_and_unsupported_properties() {
-    for stack in [
-        json!([]),
-        json!(vec![16; 11]),
-        json!([-1]),
-        json!([1048576]),
-        json!([{"label":16,"tc":8}]),
-        json!([{"label":16,"bos":true}]),
-        json!([{"label":16,"ttl":64}]),
-        json!([{"tc":3}]),
-    ] {
-        assert!(
-            build(
-                json!({"flows":[{"template_id":600,"mpls_stack":stack}]}),
-                1400
-            )
-            .is_err()
-        );
-    }
-    for name in [
-        "MPLS_LABEL_1",
-        "mpls_label_10",
-        "MPLS_LABEL_STACK_DEPTH",
-        "MPLS_LABEL_STACK_LENGTH",
-        "MPLS_TOP_LABEL_EXP",
-    ] {
-        let error=build(json!({"flows":[{"template_id":600,"mpls_stack":[16],"fields":[{"name":name,"value":1}]}]}),1400).unwrap_err();
-        assert!(format!("{error:#}").contains("conflicts"));
-    }
+    .unwrap_err();
+    assert!(format!("{error:#}").contains("unknown field `mpls_stack`"));
 }

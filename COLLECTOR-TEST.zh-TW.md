@@ -6,6 +6,8 @@
 
 以下以 PC 執行 Linux 或 Windows WSL2、collector 安裝 nfdump/nfcapd 為前提。這個專案目前建置 Linux executable；Windows 請在 WSL2 內建置、執行。紀錄內的 IPv4／IPv6 位址都是模擬資料，不必配置在 PC 上，也不會對這些位址建立連線。實際 UDP 封包只送到 `--target`。
 
+此範例在 `fields` 明列 MPLS label 與 metadata。修改時保留欄位值與順序；程式不會自動推算 stack metadata 或 BoS。舊設定的調整方式見 [更新舊設定](README.zh-TW.md#更新舊設定)。
+
 ## 先啟動 collector
 
 在 collector 執行，保留版本資訊：
@@ -83,7 +85,7 @@ send 只保留簡短設定摘要與完整流量表，不逐欄列出隨機範圍
 
 只有精確的 `--duration 0` 啟用無限模式，直到 Ctrl-C／SIGTERM；不接受 `0.0`、`-0` 或 `1e-400` 等其他零／過小寫法。count 與 duration 互斥。手動停止退出 130；參數無效退出 2；傳輸或統計寫入失敗退出 1。
 
-stdout 與 stderr 都是終端機時原地更新進度；重新導向時每 5 秒向 stderr 寫出實際發送的累積封包、紀錄、UDP payload bytes 與平均速率。可從另一個終端機執行 `tail -f send.log`。統計寫入／flush 失敗會停止發送並保留第一次錯誤；stderr 本身也失效時，訊息可能無法寫出，但不會因此 panic。這與 stdout 管線關閉可正常退出的行為不同。
+stdout 與 stderr 都是終端機時原地更新進度；重新導向時每 5 秒向 stderr 寫出實際發送的累積封包、紀錄、UDP payload bytes 與平均速率。大批量 burst 與初始 Template 發送期間也會檢查進度，回呼間隔至少 250 毫秒。達到 count 或 duration 上限後，不再執行逐包進度回報。可從另一個終端機執行 `tail -f send.log`。統計寫入／flush 失敗會停止發送並保留第一次錯誤；stderr 本身也失效時，訊息可能無法寫出，但不會因此 panic。這與 stdout 管線關閉可正常退出的行為不同。
 
 ## 停止收集，再讀取完成的檔案
 

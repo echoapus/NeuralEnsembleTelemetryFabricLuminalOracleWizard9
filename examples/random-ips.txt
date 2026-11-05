@@ -1,4 +1,4 @@
-# One address per line; any /prefix is ignored (each entry is a /32 or /128 host).
+# One plain IP address per line; CIDR prefixes are not accepted.
 192.0.2.10
 192.0.2.20
-198.51.100.0/24
+198.51.100.0
