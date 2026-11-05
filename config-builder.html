@@ -203,6 +203,7 @@ function importConfig(text){
   if(Array.isArray(value)){row.mode='list';row.items=value.map(item);}
   else if((kind==='Ipv4'||kind==='Ipv6')&&typeof value==='string'&&value.includes('/')){row.mode='prefix';row.prefix=value;}
   else if(value!==null&&typeof value==='object'){
+   ensure(!Object.hasOwn(value,'random_file'),`${title}: random_file is only supported in the CLI; nothing was imported`);
    if(Object.hasOwn(value,'prefix')||Object.hasOwn(value,'hosts_only')){
     knownKeys(value,['prefix','hosts_only'],title);ensure(typeof value.prefix==='string',`${title} is missing prefix`);ensure(value.hosts_only===undefined||typeof value.hosts_only==='boolean',`${title} hosts_only must be a boolean`);Object.assign(row,{mode:'prefix',prefix:value.prefix,hosts:value.hosts_only??false});
    }else if(Object.hasOwn(value,'random_between')){
@@ -221,7 +222,7 @@ function importConfig(text){
   return {templateId:String(flow.template_id),type:flow.scope?.length?'options':'normal',scope:(flow.scope??[]).map((f,j)=>rowFrom(f,true,`${title} scope[${j}]`)),fields:(flow.fields??[]).map((f,j)=>rowFrom(f,false,`${title} fields[${j}]`))};
  })};
  // Reject rounded u64 steps and other unsafe JSON integers before they can change a setting.
- function safeNumbers(v){if(typeof v==='number')ensure(Number.isSafeInteger(v),'Contains integers that cannot be represented exactly; use the CLI to read the original configuration');else if(v&&typeof v==='object')Object.values(v).forEach(safeNumbers);}
+ function safeNumbers(v){if(typeof v==='number'&&Number.isInteger(v))ensure(Number.isSafeInteger(v),'Contains integers that cannot be represented exactly; use the CLI to read the original configuration');else if(v&&typeof v==='object')Object.values(v).forEach(safeNumbers);}
  safeNumbers(config);build(model);return model;
 }
 function readDraft(text){

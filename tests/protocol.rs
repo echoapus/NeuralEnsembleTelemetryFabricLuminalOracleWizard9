@@ -965,6 +965,7 @@ fn asn_notations_decode_identically_in_source_and_destination_fields() {
         (json!("AS0.65000"), 65000),
         (json!("1.10"), 65546),
         (json!("AS1.10"), 65546),
+        (json!(" AS1 . 10 "), 65546),
         (json!(65546), 65546),
         (json!("65535.65535"), u32::MAX),
         (json!("AS65535.65535"), u32::MAX),
@@ -1000,6 +1001,11 @@ fn asn_notations_decode_identically_in_source_and_destination_fields() {
 fn rd_asn_notation_uses_the_same_parser_and_preserves_type_limits() {
     let pairs = [
         ("AS65000:100", "65000:100"),
+        (" 65000 : 100 ", "65000:100"),
+        (" 0 : AS0 . 65000 : 100 ", "65000:100"),
+        (" AS1 . 10 : 100 ", "65546:100"),
+        (" 1 : 192.0.2.1 : 100 ", "192.0.2.1:100"),
+        (" 2 : AS1 . 10 : 100 ", "65546:100"),
         ("0.65000:100", "65000:100"),
         ("0:AS0.65000:100", "65000:100"),
         ("AS1.10:100", "65546:100"),
@@ -1100,6 +1106,87 @@ fn progress_reports_successful_sends_while_waiting_and_is_throttled() {
     for pair in snapshots.windows(2) {
         assert!(pair[1].0 - pair[0].0 >= Duration::from_millis(250));
         assert_eq!((pair[1].1, pair[1].2), (1, 1));
+    }
+}
+
+#[test]
+fn completed_slow_burst_does_not_report_again() {
+    for kind in [Kind::All, Kind::Data, Kind::Templates] {
+        for timed in [false, true] {
+            let mut config = basic();
+            let mut second = config["flows"][0].clone();
+            second["template_id"] = json!(257);
+            config["flows"].as_array_mut().unwrap().push(second);
+            let mut plan = build(config, 1400).unwrap();
+            let mut options = settings();
+            options.kind = kind;
+            options.mode = Mode::Burst;
+            options.rate = 4;
+            options.burst_size = 4;
+            options.count = if timed { None } else { Some(1) };
+            options.duration = timed.then_some(Duration::from_millis(250));
+            let stop = AtomicBool::new(false);
+            let mut report = |stats: &sender::Stats| {
+                if (timed && stats.packets > 0)
+                    || stats.data_packets > 0
+                    || (kind == Kind::Templates && stats.template_packets > 0)
+                {
+                    stop.store(true, Ordering::Relaxed);
+                }
+            };
+            let stats = sender::run_with_progress(
+                &mut plan,
+                &options,
+                &stop,
+                |bytes| {
+                    std::thread::sleep(Duration::from_millis(270));
+                    Ok(bytes.len())
+                },
+                Some(&mut report),
+            )
+            .unwrap();
+            assert!(!stats.interrupted, "kind={kind:?}, timed={timed}");
+            assert_eq!(
+                stats.packets,
+                if kind == Kind::All && !timed { 3 } else { 1 }
+            );
+        }
+    }
+}
+
+#[test]
+fn progress_can_cancel_during_a_slow_burst() {
+    for kind in [Kind::All, Kind::Data, Kind::Templates] {
+        let mut config = basic();
+        let mut second = config["flows"][0].clone();
+        second["template_id"] = json!(257);
+        config["flows"].as_array_mut().unwrap().push(second);
+        let mut plan = build(config, 1400).unwrap();
+        let mut options = settings();
+        options.kind = kind;
+        options.mode = Mode::Burst;
+        options.rate = 4;
+        options.burst_size = 4;
+        options.count = Some(4);
+        let stop = AtomicBool::new(false);
+        let mut report = |stats: &sender::Stats| {
+            if stats.packets > 0 {
+                stop.store(true, Ordering::Relaxed);
+            }
+        };
+        let stats = sender::run_with_progress(
+            &mut plan,
+            &options,
+            &stop,
+            |bytes| {
+                std::thread::sleep(Duration::from_millis(270));
+                Ok(bytes.len())
+            },
+            Some(&mut report),
+        )
+        .unwrap();
+        assert!(stats.interrupted);
+        assert_eq!(stats.packets, 1, "must stop within the burst");
     }
 }
 

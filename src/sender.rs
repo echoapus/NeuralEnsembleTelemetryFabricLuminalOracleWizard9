@@ -170,20 +170,23 @@ pub fn run_with_progress(
     let mut refreshed = start;
     let mut since_refresh = 0u64;
     let mut next_progress = start;
+    let mut report_progress = |stats: &mut Stats| {
+        if let Some(report) = progress.as_mut() {
+            let now = Instant::now();
+            if now >= next_progress {
+                stats.elapsed = now.duration_since(start);
+                report(stats);
+                next_progress = now + Duration::from_millis(250);
+            }
+        }
+    };
 
     while count.is_none_or(|limit| sent < limit) {
         if stop.load(Ordering::Relaxed) || end.is_some_and(|end| Instant::now() >= end) {
             break;
         }
         wait_until(end.map_or(next, |end| end.min(next)), stop, || {
-            if let Some(report) = progress.as_mut() {
-                let now = Instant::now();
-                if now >= next_progress {
-                    stats.elapsed = now.duration_since(start);
-                    report(&stats);
-                    next_progress = now + Duration::from_millis(250);
-                }
-            }
+            report_progress(&mut stats);
         });
         if stop.load(Ordering::Relaxed) || end.is_some_and(|end| Instant::now() >= end) {
             break;
@@ -195,12 +198,21 @@ pub fn run_with_progress(
             {
                 break;
             }
+            report_progress(&mut stats);
+            if stop.load(Ordering::Relaxed) || end.is_some_and(|end| Instant::now() >= end) {
+                break;
+            }
             if settings.kind == Kind::All
                 && (sent == 0
                     || since_refresh >= settings.template_every
                     || refreshed.elapsed() >= settings.template_interval)
             {
                 for template in &mut plan.templates {
+                    if stop.load(Ordering::Relaxed) || end.is_some_and(|end| Instant::now() >= end)
+                    {
+                        break;
+                    }
+                    report_progress(&mut stats);
                     if stop.load(Ordering::Relaxed) || end.is_some_and(|end| Instant::now() >= end)
                     {
                         break;

@@ -48,6 +48,8 @@ fn examples_validate_and_preview_without_a_socket() {
         "examples/interfaces.json",
         "examples/nexthop.json",
         "examples/random-ports.json",
+        "examples/random-ips.json",
+        "examples/shared-template.json",
         "examples/random-counters.json",
         "examples/options.json",
         "examples/ranges.json",
@@ -64,6 +66,13 @@ fn examples_validate_and_preview_without_a_socket() {
         );
         assert!(String::from_utf8_lossy(&output.stdout).contains("Validation passed"));
     }
+    let output = cli(&["preview", "examples/random-ips.json"]);
+    assert!(output.status.success());
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("random_file 3 addresses")
+    );
     let output = cli(&["preview", "examples/basic.json", "--hex", "--limit", "1"]);
     assert!(output.status.success());
     let text = String::from_utf8(output.stdout).unwrap();

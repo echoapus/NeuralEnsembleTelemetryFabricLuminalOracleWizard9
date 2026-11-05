@@ -203,6 +203,7 @@ fn asn(text: &str) -> Result<u32> {
     let text = text.trim().to_ascii_uppercase();
     let text = text.strip_prefix("AS").unwrap_or(&text).trim();
     let decimal = |part: &str| -> Result<u32> {
+        let part = part.trim();
         ensure!(
             !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()),
             "ASN must be decimal digits, optionally prefixed with AS or written as high.low"
@@ -223,7 +224,7 @@ fn asn(text: &str) -> Result<u32> {
 }
 
 fn route_distinguisher(text: &str) -> Result<Vec<u8>> {
-    let parts: Vec<_> = text.split(':').collect();
+    let parts: Vec<_> = text.split(':').map(str::trim).collect();
     let (kind, admin, assigned) = match parts.as_slice() {
         [admin, assigned] => {
             let kind = if admin.parse::<Ipv4Addr>().is_ok() {

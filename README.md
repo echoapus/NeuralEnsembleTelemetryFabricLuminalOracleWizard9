@@ -240,7 +240,7 @@ Open [config-builder.html](config-builder.html) in a modern browser. The page wo
 
 See [IN/OUT counters](#inout-counters) for linked IN_BYTES/OUT_BYTES controls and JSON syntax.
 
-Import does not silently skip unknown content. Unknown properties, the `mpls_stack` shorthand, ICMP ranges with named or object endpoints, and integers that cannot be represented exactly are rejected while preserving the existing form. Valid CLI configurations with these features can still be used from the command line. HTML range steps are limited to `9007199254740991`; the CLI accepts larger u64 steps. ASNs, RDs, and IP prefixes are normalized to equivalent formats before export.
+Import does not silently skip unknown content. Unknown properties, the `mpls_stack` shorthand, `random_file` IP pools, ICMP ranges with named or object endpoints, and integers that cannot be represented exactly are rejected while preserving the existing form. Valid CLI configurations with these features can still be used from the command line. HTML range steps are limited to `9007199254740991`; the CLI accepts larger u64 steps. ASNs, RDs, and IP prefixes are normalized to equivalent formats before export.
 
 Drafts exist only in the current browser. Enable autosave again each time you open the page. Turning autosave off keeps the existing draft; deleting the draft also disables autosave. Storage restrictions or insufficient space produce an error. Downloading clears the leave-page reminder, but confirm that the file was saved. Copying JSON does not clear the reminder. If clipboard access is restricted, the page selects the JSON for manual copying.
 

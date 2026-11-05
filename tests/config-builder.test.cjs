@@ -108,6 +108,8 @@ function rejects(input,pattern){assert.throws(()=>build(input),pattern);}
  }
  const random={flows:[{template_id:256,fields:[{name:'l4_src_port',value:{random:true}}]}]};
  assert.deepEqual(plain(build(importConfig(JSON.stringify(random))).config.flows[0].fields[0].value),{random_between:[1,65535]});
+ assert.throws(()=>importConfig(fs.readFileSync(path.join(root,'examples/random-ips.json'),'utf8')),/random_file is only supported in the CLI; nothing was imported/);
+ assert.throws(()=>importConfig(JSON.stringify({flows:[{template_id:256,fields:[{name:'PROTOCOL',value:1.5}]}]})),/Enter a nonnegative integer/);
  const invalidImports=[
   ['{',/JSON|property|Expected/],['null',/object/],['{"flows":[]}',/Add/],
   ['{"flows":[],"extra":true}',/unsupported extra/],

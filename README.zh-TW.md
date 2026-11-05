@@ -242,7 +242,7 @@ sudo tcpdump -ni any -s 0 -w /tmp/nfgen-test.pcap 'udp dst port 7777'
 
 `IN_BYTES`、`OUT_BYTES` 的連動操作與 JSON 寫法見 [IN／OUT 計數器](#inout-計數器)。
 
-匯入不會略過未知內容。未知屬性、`mpls_stack` 簡寫、含名稱或物件的 ICMP range，以及無法精確表示的大整數會被拒絕，原表單保留；這些有效的 CLI 設定仍可用命令列操作。HTML 的 range step 上限為 `9007199254740991`，CLI 可讀取更大的 u64 step。ASN、RD 與 IP prefix 匯出前會正規化為等值的格式。
+匯入不會略過未知內容。未知屬性、`mpls_stack` 簡寫、`random_file` IP 位址池、含名稱或物件的 ICMP range，以及無法精確表示的大整數會被拒絕，原表單保留；這些有效的 CLI 設定仍可用命令列操作。HTML 的 range step 上限為 `9007199254740991`，CLI 可讀取更大的 u64 step。ASN、RD 與 IP prefix 匯出前會正規化為等值的格式。
 
 草稿只存在目前瀏覽器。每次開啟頁面需重新勾選自動儲存；取消勾選保留既有草稿，刪除草稿會同時關閉自動儲存。瀏覽器禁止儲存或空間不足時會提示失敗。下載後會清除離頁提醒，仍須確認檔案已儲存；複製 JSON 不會清除提醒。若剪貼簿操作受限，頁面會選取 JSON，讓你手動複製。
 
