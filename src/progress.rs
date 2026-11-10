@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use nfgen::{
+use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::{
     protocol::Plan,
     sender::{self, Kind, Settings, Stats},
 };
@@ -96,7 +96,7 @@ pub fn write(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nfgen::sender::Mode;
+    use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::sender::Mode;
     use std::time::Duration;
 
     #[test]
@@ -134,10 +134,18 @@ mod tests {
             (true, io::ErrorKind::Other, true),
             (false, io::ErrorKind::BrokenPipe, false),
         ] {
-            let config: nfgen::config::Config =
+            let config: neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::config::Config =
                 serde_json::from_str(include_str!("../examples/basic.json")).unwrap();
-            let flows = nfgen::config::validate(&config).unwrap();
-            let mut plan = nfgen::protocol::build(config.source_id, &flows, 1400).unwrap();
+            let flows =
+                neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::config::validate(&config)
+                    .unwrap();
+            let mut plan =
+                neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::protocol::build(
+                    config.source_id,
+                    &flows,
+                    1400,
+                )
+                .unwrap();
             let settings = Settings {
                 kind: Kind::Data,
                 count: None,

@@ -10,7 +10,7 @@ assert.match(html, /<html lang="en-US">/);
 assert.doesNotMatch(html, /\p{Script=Han}/u, 'HTML labels and messages must be in English');
 const context = vm.createContext({TextEncoder});
 vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
-const {FIELD_SPECS, SCOPES, makeRow, makeFlow, build, ipNumber, validationErrors, matchingFields, fieldGroup, importConfig, duplicateFlow, moveRow, readDraft} = context.NfgenBuilder;
+const {FIELD_SPECS, SCOPES, makeRow, makeFlow, build, ipNumber, validationErrors, matchingFields, fieldGroup, importConfig, duplicateFlow, moveRow, readDraft} = context.NeuralEnsembleTelemetryFabricLuminalOracleWizard9Builder;
 const plain = value => JSON.parse(JSON.stringify(value));
 const registry = [...fs.readFileSync(path.join(root, 'src/fields.rs'), 'utf8').matchAll(/"([A-Z0-9_]+)" => \((\d+), (\d+), Kind::(\w+)\)/g)].map(([,name,id,length,kind]) => [name,Number(id),Number(length),kind]);
 assert.deepEqual(plain(FIELD_SPECS),registry,'HTML field catalog must match Rust');

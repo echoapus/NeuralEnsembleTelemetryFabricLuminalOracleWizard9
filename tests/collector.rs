@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::atomic::AtomicBool, time::Duration};
 
-use nfgen::{
+use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::{
     config::{self, Config},
     fields, protocol,
     sender::{self, Kind, Mode, Settings},

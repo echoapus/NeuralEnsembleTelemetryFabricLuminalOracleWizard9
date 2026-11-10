@@ -20,9 +20,9 @@ nfdump -V
 在新的專用目錄收集，避免與既有流量混在一起。下列使用 UDP 2055；若已有服務占用此 port，可換成 12055，PC 的 target 也要跟著改。collector 防火牆須允許 PC 到這個 UDP port。
 
 ```sh
-NFGEN_FLOW_DIR=$(mktemp -d "$HOME/nfgen-collector.XXXXXX")
-printf '%s\n' "$NFGEN_FLOW_DIR"
-nfcapd -l "$NFGEN_FLOW_DIR" -p 2055 -t 60 -E
+NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR=$(mktemp -d "$HOME/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-collector.XXXXXX")
+printf '%s\n' "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfcapd -l "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -p 2055 -t 60 -E
 ```
 
 保留這個終端機，接著去 PC 發送。這個指令在前景執行；`-E` 用於觀察解碼，較新版亦可使用 `-v 3`。nfdump 1.7 系列預設動態儲存支援的 extensions；若使用 1.6 系列，依本機 `nfcapd -h` 確認並加上 `-T all`，避免 Interface、ASN、MPLS 等額外資料未被保存。參數依據 [nfcapd 官方手冊](https://github.com/phaag/nfdump/blob/master/man/nfcapd.1)。
@@ -35,8 +35,8 @@ nfcapd -l "$NFGEN_FLOW_DIR" -p 2055 -t 60 -E
 
 ```sh
 cargo build --release --locked
-./target/release/nfgen validate examples/collector-all-fields.json
-./target/release/nfgen preview examples/collector-all-fields.json --kind data --limit 14 --rate 10
+./target/release/nfv9gen validate examples/collector-all-fields.json
+./target/release/nfv9gen preview examples/collector-all-fields.json --kind data --limit 14 --rate 10
 ```
 
 預期驗證摘要：
@@ -53,7 +53,7 @@ Validation passed: Source ID=424242, 14 templates, 22 records, 14 data packets
 
 這份設定每輪 14 包 Data，因此 rate=10 時 Template 1000 的理論估算約為 IN **5714.29 bps／7.14 pps**、OUT **11428.57 bps／14.29 pps**。其餘一般 Template 各列一組；缺少 OUT 計數器的欄位顯示 `-`，5 個 Options Template 則只列 ID 與 `Options`，不估算模擬流量。Options 的 Data 包仍占發送時間。
 
-send 只保留簡短設定摘要與完整流量表，不逐欄列出隨機範圍或重複列出前幾組 Template 結構；需要細節時使用 `nfgen preview examples/collector-all-fields.json --template-id 1000 --kind data --hex --limit 1 --rate 10`。停止後顯示兩行摘要，包含累計時分秒、Data／Template 包數、紀錄數、UDP payload MiB 與平均速率。
+send 只保留簡短設定摘要與完整流量表，不逐欄列出隨機範圍或重複列出前幾組 Template 結構；需要細節時使用 `nfv9gen preview examples/collector-all-fields.json --template-id 1000 --kind data --hex --limit 1 --rate 10`。停止後顯示兩行摘要，包含累計時分秒、Data／Template 包數、紀錄數、UDP payload MiB 與平均速率。
 
 上述估算假設持續循環發送、全數接收、按接收時間彙總且不套用取樣倍率；短程發送仍顯示長期平均換算值，不是實際 UDP 頻寬，也不是 collector 依紀錄期間、取樣倍率或聚合算出的速率。limit／template-id 只篩選封包預覽，不縮小估算範圍；發送中的週期統計不重算每分鐘預期。
 
@@ -62,7 +62,7 @@ send 只保留簡短設定摘要與完整流量表，不逐欄列出隨機範圍
 把下列 target 換成實際 collector IP。請使用 `all` 模式，讓 Template 和 Data 在同一次執行中送出；不用 root 或 `--source`。
 
 ```sh
-./target/release/nfgen send examples/collector-all-fields.json \
+./target/release/nfv9gen send examples/collector-all-fields.json \
   --target 192.0.2.20:2055 \
   --kind all --rate 10 --count 140 --template-every 14
 ```
@@ -78,7 +78,7 @@ send 只保留簡短設定摘要與完整流量表，不逐欄列出隨機範圍
 十輪核對通過後，可另外使用持續發送；以下命令沒有固定輪數，不適用後面的「10 輪一般流量列」數量：
 
 ```sh
-./target/release/nfgen send examples/collector-all-fields.json \
+./target/release/nfv9gen send examples/collector-all-fields.json \
   --target 192.0.2.20:2055 --kind all --rate 20 \
   --duration 0 --template-every 14 >send.log 2>&1
 ```
@@ -89,11 +89,11 @@ stdout 與 stderr 都是終端機時原地更新進度；重新導向時每 5 �
 
 ## 停止收集，再讀取完成的檔案
 
-PC 發送完成後，回到剛才 collector 的終端機按 Ctrl-C，等 nfcapd 結束，再執行下面的指令。不要讀取仍在寫入的 `nfcapd.current.*`。若改用另一個終端機，先將 `NFGEN_FLOW_DIR` 設為剛才印出的目錄。
+PC 發送完成後，回到剛才 collector 的終端機按 Ctrl-C，等 nfcapd 結束，再執行下面的指令。不要讀取仍在寫入的 `nfcapd.current.*`。若改用另一個終端機，先將 `NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR` 設為剛才印出的目錄。
 
 ```sh
-ls -lh "$NFGEN_FLOW_DIR"
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw
+ls -lh "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 -o raw
 ```
 
 `-o raw` 顯示檔案中保留的 extensions，**不是原始 UDP 封包的逐欄位轉印**；`-N` 不縮寫數值，`-6` 保留完整 IPv6。不要加 `-a` 或 `-A` 聚合，否則重複送出的紀錄會合併。輸出與過濾用法見 [nfdump 官方手冊](https://github.com/phaag/nfdump/blob/master/man/nfdump.1)。
@@ -101,7 +101,7 @@ nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw
 摘要表：
 
 ```sh
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 \
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 \
   -o 'fmt:%sa %da %pr %sp %dp %in %out %sas %das %ipkt %ibyt %opkt %obyt'
 ```
 
@@ -132,22 +132,22 @@ nfdump -R "$NFGEN_FLOW_DIR" -N -6 \
 
 ```sh
 # .0/32：應保留 1.1.1.0，不是零筆，也不會展開成整個 /24
-nfdump -R "$NFGEN_FLOW_DIR" -N -o raw 'src ip 1.1.1.0'
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -o raw 'src ip 1.1.1.0'
 
 # Interface：同一來源有五種 INPUT_SNMP，OUTPUT_SNMP 固定 70002
-nfdump -R "$NFGEN_FLOW_DIR" -N \
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N \
   -o 'fmt:%sa %in %out %ipkt %ibyt' 'src ip 192.0.2.15'
 
 # 完整 IPv4 基準：逐筆 packets/bytes 應為 10/1000、20/2000
-nfdump -R "$NFGEN_FLOW_DIR" -N -o raw 'src ip 192.0.2.10'
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -o raw 'src ip 192.0.2.10'
 
 # MPLS：第一層 16000、TC=3；第十層 16009、BoS=1
-nfdump -R "$NFGEN_FLOW_DIR" -N \
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N \
   -o 'fmt:%sa %mpls1 %mpls2 %mpls3 %mpls4 %mpls5 %mpls6 %mpls7 %mpls8 %mpls9 %mpls10' \
   'src ip 192.0.2.16'
 
 # ICMPv4／v6：用 raw 觀察 type/code；不要要求 TCP/UDP port 意義
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw 'proto 1 or proto 58'
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 -o raw 'proto 1 or proto 58'
 ```
 
 1000 的 SRC_AS 應為 `65546`（`AS1.10` 的等值整數），DST_AS 為 `4200000000`；兩種 next-hop 分別為 `192.0.2.254`、`198.51.100.254`，INPUT/OUTPUT_SNMP 為 `70001/70002`。1002 的兩種 IPv6 next-hop 為 `2001:db8:1002::ffff`、`2001:db8:2002::ffff`，ASN 為 `65002/65556`。
@@ -169,7 +169,7 @@ MPLS label 1～10 與額外 metadata 分在不同 Template，便於定位問題�
 若要確認缺少的欄位是否真的存在於網路上，在 collector 另開終端機先抓包，再重新發送：
 
 ```sh
-sudo tcpdump -ni any -s 0 -w /tmp/nfgen-all-fields.pcap 'udp dst port 2055'
+sudo tcpdump -ni any -s 0 -w /tmp/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-all-fields.pcap 'udp dst port 2055'
 ```
 
 發送完按 Ctrl-C，使用 Wireshark 開啟 pcap，必要時將 UDP 2055 Decode As 為 CFLOW/NetFlow，對照 Template ID、欄位 ID、長度及 Data 值。只有 nfdump 沒顯示，而 pcap 中有正確的欄位和值時，應記錄為該 collector 版本未保存／未顯示；若 nfcapd 報長度錯誤、丟棄 Data 或欄位解碼錯位，再對照 pcap 定位。

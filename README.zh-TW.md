@@ -1,8 +1,8 @@
-# NeoFlow Generator (nfgen)
+# NeuralEnsembleTelemetryFabricLuminalOracleWizard9
 
 [English (en-US)](README.md) | [繁體中文 (zh-TW)](README.zh-TW.md)
 
-**NeoFlow Generator**（簡稱 `nfgen`）是以 Rust 實作的 NetFlow v9 流量產生器。讀取 JSON，先驗證設定、離線預覽，再透過 UDP 發送。支援 53 個一般欄位、5 種 Options scope、IPv4／IPv6、Interface、ASN、ICMP、MPLS、範圍展開，以及 L4 port／IN_PKTS／IN_BYTES 隨機值。
+**NeuralEnsembleTelemetryFabricLuminalOracleWizard9**（執行檔：`nfv9gen`）是以 Rust 實作的 NetFlow v9 流量產生器。讀取 JSON，先驗證設定、離線預覽，再透過 UDP 發送。支援 53 個一般欄位、5 種 Options scope、IPv4／IPv6、Interface、ASN、ICMP、MPLS、範圍展開，以及 L4 port／IN_PKTS／IN_BYTES 隨機值。
 
 | 要做的事 | 文件或工具 |
 |---|---|
@@ -24,6 +24,33 @@ CLI 與 HTML 介面使用美式英文；兩種語言文件均保留實際英文�
 
 ## 編譯與快速開始
 
+### 下載已編譯執行檔
+
+開啟本專案的 **Releases** 頁面，下載 `nfv9gen-linux-x86_64.tar.gz` 與對應的 `.sha256` 檔案。執行檔適用於 Linux x86-64、glibc 2.35 以上（Ubuntu 22.04 以上，包含 WSL2）。其他系統請依下方步驟自行編譯。
+
+```bash
+sha256sum -c nfv9gen-linux-x86_64.tar.gz.sha256
+tar -xzf nfv9gen-linux-x86_64.tar.gz
+cd nfv9gen-linux-x86_64
+./nfv9gen --version
+./nfv9gen validate examples/basic.json
+```
+
+使用下載的執行檔時，請將下方指令的 `./target/release/nfv9gen` 替換成 `./nfv9gen`。
+
+### 自動編譯與發佈
+
+每次推送至 `main`，GitHub Actions 都會執行測試與編譯。也可在 **Actions → Build and release → Run workflow** 選擇 `main` 手動編譯，不會發佈版本。完成後可在該次執行的 artifacts 下載壓縮檔與校驗碼。
+
+發佈版本前，先更新 `Cargo.toml`、`Cargo.lock`，提交並推送變更，再推送相符的版本標籤：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+每個版本使用新標籤。測試與編譯成功後，工作流程會建立 GitHub Release，附上執行檔壓縮檔與校驗碼。使用 GitHub 自動提供的 token，不需設定個人存取權杖或 repository secret。
+
 ### 自動編譯（建議）
 
 在 GitHub 選擇 **Code → Download ZIP**，下載並解壓縮本專案，再於包含 `build.sh` 的資料夾開啟終端機，執行：
@@ -34,7 +61,7 @@ bash build.sh
 
 腳本會辨識 Linux 與 CPU 架構，檢查 C 編譯器／連結器，並在 Ubuntu／Debian、Fedora／RHEL 相容系統、openSUSE、Arch 衍生系統安裝缺少的系統工具。現有 Rust 若符合 Cargo.toml 的最低需求，就直接沿用；否則透過 [官方 rustup](https://rust-lang.github.io/rustup/concepts/profiles.html) 安裝精簡的穩定版工具鏈。接著使用鎖定的依賴版本編譯，檢查版本、基本設定與離線封包預覽，不會發送封包。
 
-請**不要加 sudo** 執行腳本。只有缺少系統套件時，腳本才會使用 sudo；安裝套件與首次下載 Rust／依賴需要網路。腳本會自動接受套件與 Rust 的安裝提示；sudo 仍可能要求輸入登入密碼。程式不會安裝到系統目錄；執行檔位於 `target/release/nfgen`，完成後會顯示其絕對路徑。
+請**不要加 sudo** 執行腳本。只有缺少系統套件時，腳本才會使用 sudo；安裝套件與首次下載 Rust／依賴需要網路。腳本會自動接受套件與 Rust 的安裝提示；sudo 仍可能要求輸入登入密碼。程式不會安裝到系統目錄；執行檔位於 `target/release/nfv9gen`，完成後會顯示其絕對路徑。
 
 更新原始碼後可再次執行 `bash build.sh`，沿用既有工具與編譯快取。不支援自動安裝的發行版，請先手動安裝 C 編譯器／連結器、curl 與 CA 憑證，腳本就能繼續處理 Rust 與編譯。Arch 使用者請先確認系統與套件資料庫已更新；腳本不會執行整套系統升級。任何步驟失敗都會停止並顯示錯誤，請修正後再執行。
 
@@ -44,7 +71,7 @@ bash build.sh
 
 以下步驟以 **Ubuntu 或 Debian Linux** 為例，也適用於 WSL2 裡的 Ubuntu。安裝工具與第一次編譯需要網路；安裝系統套件時，帳號需要能使用 `sudo`。其他 Linux 發行版請先安裝該發行版的 C 編譯器、連結器與 curl，再執行 Rust 安裝及編譯步驟。
 
-請在**終端機（Terminal）**中依序執行，每次複製一個指令區塊，不要複製預期輸出。`sudo` 要求輸入登入密碼時，畫面不會顯示字元；輸入完按 Enter 即可。只有下方安裝系統套件的指令需要 `sudo`，編譯與執行 nfgen 請使用一般使用者帳號。
+請在**終端機（Terminal）**中依序執行，每次複製一個指令區塊，不要複製預期輸出。`sudo` 要求輸入登入密碼時，畫面不會顯示字元；輸入完按 Enter 即可。只有下方安裝系統套件的指令需要 `sudo`，編譯與執行 NeuralEnsembleTelemetryFabricLuminalOracleWizard9 請使用一般使用者帳號。
 
 ### 1. 安裝 Linux 編譯工具
 
@@ -100,17 +127,17 @@ cargo build --release --locked
 
 第一次會下載並編譯依賴套件，可能需要數分鐘。請等到顯示成功的 `Finished` 訊息，且終端機提示符號重新出現。`--release` 產生最佳化的執行檔；`--locked` 使用 `Cargo.lock` 記錄的依賴版本。
 
-完成的程式位於專案資料夾中的 **`target/release/nfgen`**，不必執行 `cargo install` 或安裝到系統目錄。
+完成的程式位於專案資料夾中的 **`target/release/nfv9gen`**，不必執行 `cargo install` 或安裝到系統目錄。
 
 ### 5. 不連接 collector，先確認編譯成功
 
 ```sh
-./target/release/nfgen --version
-./target/release/nfgen validate examples/basic.json
-./target/release/nfgen preview examples/basic.json --kind data --hex
+./target/release/nfv9gen --version
+./target/release/nfv9gen validate examples/basic.json
+./target/release/nfv9gen preview examples/basic.json --kind data --hex
 ```
 
-`--version` 應顯示 `nfgen 0.1.0`。路徑前方的 `./` 表示執行目前位置下的檔案。驗證應顯示：
+`--version` 應顯示 `nfv9gen 0.1.0`。路徑前方的 `./` 表示執行目前位置下的檔案。驗證應顯示：
 
 ```text
 Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets
@@ -123,18 +150,18 @@ Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets
 範例 `192.0.2.20:7777` 是文件用位址，不是可直接使用的 collector。請換成實際 collector 的 IP／UDP port。先完成[啟動 collector](#先讓-collector-接收)，讓 listener、target 與抓包條件一致，再發送：
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777
 ```
 
 未指定 `--rate` 時預設為 **20 包／秒**，是整份設定共用的目標速率。未指定 `--count` 或 `--duration` 時，只送一輪：先送全部 Template，再將全部 Data 封包各送一次。持續發送可指定秒數，或用 `--duration 0` 無限執行直到 Ctrl-C／SIGTERM：
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 20 --duration 10
 ```
 
-更新程式後重新執行 `cargo build --release --locked`。依賴已快取時可加 `--offline`。以下命令均以專案根目錄為工作目錄；若已將執行檔複製為 `./nfgen`，可替換命令中的路徑。
+更新程式後重新執行 `cargo build --release --locked`。依賴已快取時可加 `--offline`。以下命令均以專案根目錄為工作目錄；若已將執行檔複製為 `./nfv9gen`，可替換命令中的路徑。
 
 ### 編譯步驟失敗時
 
@@ -145,7 +172,7 @@ Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets
 | `could not find Cargo.toml` | 目前資料夾不對；回到解壓縮後、包含 Cargo.toml 的資料夾，再執行步驟 3 的 `ls` 檢查 |
 | Rust 版本太舊，或依賴套件要求較新的 rustc | 若透過 rustup 安裝，執行 `rustup update stable` 與 `rustup default stable`，確認 `rustc --version`，再重新編譯 |
 | 依賴下載失敗或網域名稱解析錯誤 | 檢查網路／代理伺服器後重試；只有所有需要的依賴都已快取，才能使用 `--offline` |
-| `./target/release/nfgen: No such file or directory` | 確認編譯已成功，且目前仍在專案根目錄；執行 `ls -l target/release/nfgen` 檢查 |
+| `./target/release/nfv9gen: No such file or directory` | 確認編譯已成功，且目前仍在專案根目錄；執行 `ls -l target/release/nfv9gen` 檢查 |
 
 ## 先讓 collector 接收
 
@@ -162,23 +189,23 @@ sudo ss -lunp 'sport = :7777'
 若已有正式 collector，請從該系統設定啟用 NetFlow v9 的接收 port。若你是使用官方 nfdump 工具組，可用 nfcapd 開一個測試接收器；以下在 collector 的終端機執行：
 
 ```sh
-NFGEN_FLOW_DIR=$(mktemp -d /tmp/nfgen-collector.XXXXXX)
-printf '%s\n' "$NFGEN_FLOW_DIR"
-nfcapd -l "$NFGEN_FLOW_DIR" -b 0.0.0.0 -p 7777 -t 60 -E
+NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR=$(mktemp -d /tmp/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-collector.XXXXXX)
+printf '%s\n' "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfcapd -l "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -b 0.0.0.0 -p 7777 -t 60 -E
 ```
 
 這個 nfcapd 保持前景執行，另開終端機檢查 `ss`。不要在同一個 port 再啟動第二個接收程式。`-E` 是解碼觀察模式，較新版亦可使用 `-v 3`；若是 1.6 系列，依本機 `nfcapd -h` 確認並加上 `-T all`，保存額外欄位。[nfcapd 官方手冊](https://github.com/phaag/nfdump/blob/master/man/nfcapd.1)
 
-若目的 UDP port 沒有接收程式，OS 可能回覆 ICMP Port Unreachable；發送端出現 `Connection refused` 後，nfgen 會直接停止。單獨啟動旁路抓包工具不會代替 UDP 接收器。
+若目的 UDP port 沒有接收程式，OS 可能回覆 ICMP Port Unreachable；發送端出現 `Connection refused` 後，NeuralEnsembleTelemetryFabricLuminalOracleWizard9 會直接停止。單獨啟動旁路抓包工具不會代替 UDP 接收器。
 
 ## 第一次發送與核對
 
 ### 發送設定與讀取結果
 
-HTML 下載的 `nfgen.json` 和手寫 JSON 使用同一個 CLI。先以基本範例測通，再替換設定檔：
+HTML 下載的 `NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json` 和手寫 JSON 使用同一個 CLI。先以基本範例測通，再替換設定檔：
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777
 ```
 
@@ -187,11 +214,11 @@ HTML 下載的 `nfgen.json` 和手寫 JSON 使用同一個 CLI。先以基本範
 使用官方 nfcapd 收集時，發送完回到 nfcapd 終端機按 Ctrl-C，等它結束並寫完檔案，再於同一個終端機執行：
 
 ```sh
-ls -lh "$NFGEN_FLOW_DIR"
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw
+ls -lh "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 -o raw
 ```
 
-若換終端機，先將 NFGEN_FLOW_DIR 設為剛才印出的目錄。不要讀取仍在寫入的 `nfcapd.current.*`；先不加聚合或時間過濾，避免掩蓋收到的資料。[nfdump 官方手冊](https://github.com/phaag/nfdump/blob/master/man/nfdump.1)
+若換終端機，先將 NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR 設為剛才印出的目錄。不要讀取仍在寫入的 `nfcapd.current.*`；先不加聚合或時間過濾，避免掩蓋收到的資料。[nfdump 官方手冊](https://github.com/phaag/nfdump/blob/master/man/nfdump.1)
 
 ### 分清楚同名的 nfdump 工具
 
@@ -217,7 +244,7 @@ sudo tcpdump -ni any -nn \
 來源 IP 請改為實際 PC 位址；若經過 NAT，collector 看到的位址可能不同。若要留下完整內容供 Wireshark 核對，可使用：
 
 ```sh
-sudo tcpdump -ni any -s 0 -w /tmp/nfgen-test.pcap 'udp dst port 7777'
+sudo tcpdump -ni any -s 0 -w /tmp/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-test.pcap 'udp dst port 7777'
 ```
 
 ## HTML JSON 產生器
@@ -227,8 +254,8 @@ sudo tcpdump -ni any -s 0 -w /tmp/nfgen-test.pcap 'udp dst port 7777'
 1. 已有 JSON 時，在頁面上方「Start here」選檔直接載入；或展開「Paste JSON content」，按「Load pasted JSON」。
 2. 新設定從預設 IPv4 TCP 開始；下方可新增 IPv6、ICMP、Options、MPLS 或自訂 flow。
 3. 調整 Source ID、Template ID 與欄位值，依需要切換單值、多值、range、prefix 或隨機模式。
-4. 檢查右側預覽與欄位錯誤，狀態為「Ready to download」後下載 `nfgen.json`。
-5. 用 `nfgen validate nfgen.json`、`nfgen preview nfgen.json` 檢查，再交給 `nfgen send` 發送。
+4. 檢查右側預覽與欄位錯誤，狀態為「Ready to download」後下載 `NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json`。
+5. 用 `nfv9gen validate NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json`、`nfv9gen preview NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json` 檢查，再交給 `nfv9gen send` 發送。
 
 | 功能 | 行為 |
 |---|---|
@@ -303,8 +330,8 @@ JSON 的結構鍵名固定，例如 `source_id`、`flows`、`template_id`、`fie
 只產生表中的兩筆，不會產生來源 .1 配目的 .2 或其他跨組搭配：
 
 ```sh
-./target/release/nfgen validate examples/shared-template.json
-./target/release/nfgen preview examples/shared-template.json --template-id 256 --kind data
+./target/release/nfv9gen validate examples/shared-template.json
+./target/release/nfv9gen preview examples/shared-template.json --template-id 256 --kind data
 ```
 
 預期為 **1 個 Template、2 筆紀錄、2 包 Data**。兩個 flow 的每個欄位仍需各自填寫，不會繼承另一個 flow 的值。HTML 可按「Duplicate with shared template」建立下一組，再修改其值；若要調整結構，需同步修改共用者或改用新 ID。不同 ID 即使結構相同，也不會自動合併。
@@ -360,7 +387,7 @@ Prefix、range、random 物件放在 `value` 最外層；陣列用於離散值�
 `preview` 可在不建立 socket、不發送封包的情況下，粗估 collector 每分鐘彙總後的 IN／OUT 平均 bps、pps；`send` 發送前的計畫也會顯示同樣估算：
 
 ```sh
-./target/release/nfgen preview examples/basic.json --kind data --rate 20
+./target/release/nfv9gen preview examples/basic.json --kind data --rate 20
 ```
 
 基本範例每輪一筆紀錄、一包 Data，IN_PKTS＝10、IN_BYTES＝1000，預期顯示：
@@ -398,11 +425,11 @@ Template         IN bps         IN pps        OUT bps        OUT pps
 | range `0..=499999` | 約 5 MiB |
 | 列出 500,000 個整數的 JSON 陣列 | 約 22 MiB |
 
-陣列優化前同案例約 48 MiB，優化後約減少 55%。這是特定設定的量測，並非所有設定或長時間發送的保證值。可在 Linux 用 `/usr/bin/time -v ./target/release/nfgen validate nfgen.json` 查看自己的峰值；目前沒有自動預估 RAM 或記憶體預算選項。
+陣列優化前同案例約 48 MiB，優化後約減少 55%。這是特定設定的量測，並非所有設定或長時間發送的保證值。可在 Linux 用 `/usr/bin/time -v ./target/release/nfv9gen validate NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json` 查看自己的峰值；目前沒有自動預估 RAM 或記憶體預算選項。
 
 ### IN／OUT 計數器
 
-四個欄位 `IN_PKTS`、`IN_BYTES`、`OUT_PKTS`、`OUT_BYTES` 都是 4-byte 非負整數，範圍 `0..=4294967295`。它們描述紀錄內的流量，不是 nfgen 實際送出的 UDP 包數或大小，也不會隨循環發送自動累加。
+四個欄位 `IN_PKTS`、`IN_BYTES`、`OUT_PKTS`、`OUT_BYTES` 都是 4-byte 非負整數，範圍 `0..=4294967295`。它們描述紀錄內的流量，不是 NeuralEnsembleTelemetryFabricLuminalOracleWizard9 實際送出的 UDP 包數或大小，也不會隨循環發送自動累加。
 
 HTML 可在 `IN_BYTES`／`OUT_BYTES` 的「值的模式」選「Calculate from PKTS」，輸入正整數平均封包大小（bytes / packet）。同一 flow 必須有對應方向的 PKTS，且使用單一值：
 
@@ -564,9 +591,9 @@ ASN 部分支援 AS 前綴與 asdot；未指定 type 時，ASN≤65535 選 Type 
 ## CLI
 
 ```text
-nfgen validate CONFIG [--packet-size BYTES]
-nfgen preview CONFIG [--packet-size BYTES] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
-nfgen send CONFIG [OPTIONS]
+nfv9gen validate CONFIG [--packet-size BYTES]
+nfv9gen preview CONFIG [--packet-size BYTES] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
+nfv9gen send CONFIG [OPTIONS]
 # 所有指令都可加 -s/--silent：只輸出 done 或 fail
 ```
 
@@ -605,7 +632,7 @@ nfgen send CONFIG [OPTIONS]
 
 兩個刷新門檻任一達到，就在下一包 Data 前刷新全部 Template。每次執行 sequence 從 0 開始，成功送出每個 datagram 後遞增，Template／Data 共用並自然回繞。
 
-發送前只列來源／目的、設定摘要、模式／速率／停止條件、UDP payload 範圍、Template 刷新規則與逐 Template 的流量表。欄位結構、首尾值及隨機範圍不在 send 重複列出，請用 `nfgen preview CONFIG --template-id ID` 查看。stdout 與 stderr 都連接終端機時，進度會原地更新；任一串流重新導向時，每 5 秒向 stderr 輸出一行統計（執行秒數、累積封包／紀錄／bytes，以及平均封包速率），不含終端機控制碼。可用 `--duration 0 >send.log 2>&1` 保存持續發送的紀錄。完成或 Ctrl-C／SIGTERM 中斷會輸出兩行摘要：累計時分秒、Data／Template 包數，以及紀錄數、UDP payload MiB、平均 Data 包/s；傳輸錯誤立即回報失敗，不輸出正常完成摘要。
+發送前只列來源／目的、設定摘要、模式／速率／停止條件、UDP payload 範圍、Template 刷新規則與逐 Template 的流量表。欄位結構、首尾值及隨機範圍不在 send 重複列出，請用 `nfv9gen preview CONFIG --template-id ID` 查看。stdout 與 stderr 都連接終端機時，進度會原地更新；任一串流重新導向時，每 5 秒向 stderr 輸出一行統計（執行秒數、累積封包／紀錄／bytes，以及平均封包速率），不含終端機控制碼。可用 `--duration 0 >send.log 2>&1` 保存持續發送的紀錄。完成或 Ctrl-C／SIGTERM 中斷會輸出兩行摘要：累計時分秒、Data／Template 包數，以及紀錄數、UDP payload MiB、平均 Data 包/s；傳輸錯誤立即回報失敗，不輸出正常完成摘要。
 
 Stream 高速率受系統排程精度限制；burst 可降低逐包等待成本，但不保證達到設定速率。設定與封包預先建立，不按 count 複製清單；random_between 與 random_file 欄位另在發送前改寫。FIRST_SWITCHED／LAST_SWITCHED 等紀錄欄位保持設定值，不會隨時間更新。
 
@@ -613,20 +640,20 @@ Stream 高速率受系統排程精度限制；burst 可降低逐包等待成本�
 
 ```sh
 # 發送 100 包 Data；Template 額外計算
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 10 --count 100
 
 # 持續 10 秒；count 與 duration 不可同時使用
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 20 --duration 10
 
 # 無限循環，直到 Ctrl-C／SIGTERM；每 5 秒將統計寫入日誌
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 20 --duration 0 \
   >send.log 2>&1
 
 # 以 burst 分組發送，並調整 Template 刷新門檻
-./target/release/nfgen send examples/ranges.json \
+./target/release/nfv9gen send examples/ranges.json \
   --target 192.0.2.20:7777 --mode burst --burst-size 64 \
   --rate 10000 --count 10000 --template-every 100 --template-interval 5
 ```
@@ -647,12 +674,12 @@ Stream 高速率受系統排程精度限制；burst 可降低逐包等待成本�
 ### 指定實際 UDP 來源 IP
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --bind 192.0.2.10:55000
 ```
 
 ```sh
-sudo ./target/release/nfgen send examples/basic.json \
+sudo ./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --source 198.51.100.123:55000
 ```
 
@@ -665,7 +692,7 @@ bind 與 source 都須和 target 使用相同 IP 版本。source 必須是明確
 任何指令加上 `-s` / `--silent`，stdout 只會輸出 `done` 或 `fail`，不顯示進度、統計或錯誤細節。退出碼不變。參數錯誤仍由參數解析器輸出。
 
 ```bash
-nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
+nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 ```
 
 ### 退出碼
@@ -760,7 +787,7 @@ nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 全欄位設定每輪 14 包 Data、22 筆紀錄：17 筆一般流量＋5 筆 Options。先啟動目的 port 的 collector，再執行：
 
 ```sh
-./target/release/nfgen send examples/collector-all-fields.json \
+./target/release/nfv9gen send examples/collector-all-fields.json \
   --target 192.0.2.20:7777 \
   --kind all --rate 10 --count 140 --template-every 14
 ```
@@ -770,7 +797,7 @@ nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 驗證全欄位設定預期為 Source ID=424242、14 個 Template、22 筆紀錄、14 包 Data。可針對單組預覽：
 
 ```sh
-./target/release/nfgen preview examples/collector-all-fields.json \
+./target/release/nfv9gen preview examples/collector-all-fields.json \
   --template-id 1005 --kind data --hex --limit 1
 ```
 
@@ -780,12 +807,12 @@ nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 
 `collector-all-fields.json` 為 15,629 bytes；自行移除縮排後為 7,259 bytes，約少 53.6%，設定及封包內容等值。只有空白被省略，鍵名仍是 name/value。減少設定重複可使用 prefix 或 range；這些寫法仍須保留想測試的欄位與值。修改欄位順序會改變 Template，不能當成任意設定的無損替換。
 
-可用 Python 移除 JSON 縮排，轉檔後再驗證；nfgen 執行本身不需要 Python：
+可用 Python 移除 JSON 縮排，轉檔後再驗證；NeuralEnsembleTelemetryFabricLuminalOracleWizard9 執行本身不需要 Python：
 
 ```sh
 python3 -c 'import json,sys; json.dump(json.load(sys.stdin),sys.stdout,separators=(",",":"))' \
-  < nfgen.json > nfgen.min.json
-./target/release/nfgen validate nfgen.min.json
+  < NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json > NeuralEnsembleTelemetryFabricLuminalOracleWizard9.min.json
+./target/release/nfv9gen validate NeuralEnsembleTelemetryFabricLuminalOracleWizard9.min.json
 ```
 
 省略空白不會縮小 NetFlow 封包；原檔若含浮點寫法的大整數，轉檔工具可能影響精度，應使用規定的整數格式。
@@ -798,7 +825,7 @@ Release 已啟用 `lto="thin"`、`codegen-units=1`、`strip=true`，沒有導入
 
 | 現象 | 檢查與處理 |
 |---|---|
-| `Connection refused (os error 111)` | 先確認目標 IP／port 的 UDP listener 與防火牆；nfgen 收到錯誤即停止，先不要判定為欄位格式問題 |
+| `Connection refused (os error 111)` | 先確認目標 IP／port 的 UDP listener 與防火牆；NeuralEnsembleTelemetryFabricLuminalOracleWizard9 收到錯誤即停止，先不要判定為欄位格式問題 |
 | 抓包工具有看到，正式系統沒有資料 | 分別檢查 UDP 接收、來源允許清單、Template 解析、寫檔與入庫日誌 |
 | `invalid netflow version` | 若抓包條件是所有 UDP，可能把其他流量送入解碼器；縮小為實際來源 IP 與目的 port，再保留 pcap 比對 |
 | 只送出一小段就結束 | 未指定 count/duration 時只送一輪；持續執行請用 --duration 0 |
@@ -823,7 +850,7 @@ Release 已啟用 `lto="thin"`、`codegen-units=1`、`strip=true`，沒有導入
 | packet/byte 計數變大 | 檢查 collector 的取樣換算與是否聚合；全欄位基準 interval 為 1 |
 | 草稿未儲存或無法還原 | 草稿需自行開啟，僅存目前瀏覽器；檢查儲存限制，並下載備份 |
 
-回報問題時保留執行命令、nfgen 與 collector 版本、發送摘要、接收日誌，以及必要時的 pcap。先核對封包與設定，再判斷是發送、解碼、保存還是顯示層的問題。
+回報問題時保留執行命令、NeuralEnsembleTelemetryFabricLuminalOracleWizard9 與 collector 版本、發送摘要、接收日誌，以及必要時的 pcap。先核對封包與設定，再判斷是發送、解碼、保存還是顯示層的問題。
 
 ## 開發驗證
 

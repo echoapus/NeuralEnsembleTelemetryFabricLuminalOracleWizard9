@@ -206,7 +206,7 @@ MPLS label 與 stack metadata 必須明列於 `fields`，不再接受 flow 層�
 `IN_PKTS`／`OUT_PKTS` 是紀錄內的輸入／輸出封包數，`IN_BYTES`／`OUT_BYTES` 是位元組數；它們不會在每次發送時自動累加。bps 依 BYTES × 8 計算，pps 依 PKTS 計算；以每分鐘彙總量除以 60 秒表示平均速率：
 
 ```sh
-./target/release/nfgen preview examples/shared-template.json --kind data --rate 20
+./target/release/nfv9gen preview examples/shared-template.json --kind data --rate 20
 ```
 
 預設 rate 為 20，範例中兩個 flow 共用 Template 256，合併後預期為：

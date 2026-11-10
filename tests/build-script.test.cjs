@@ -30,14 +30,14 @@ case "$name" in
         if [[ $1 == --version ]]; then printf 'cargo 1.93.1\\n'; exit; fi
         [[ $MOCK_BUILD_FAIL == no ]] || exit 43
         /bin/mkdir -p target/release
-        /bin/cat > target/release/nfgen <<'BINARY'
+        /bin/cat > target/release/nfv9gen <<'BINARY'
 #!/bin/bash
-printf 'nfgen' >> "$MOCK_LOG"
+printf 'nfv9gen' >> "$MOCK_LOG"
 printf ' <%s>' "$@" >> "$MOCK_LOG"
 printf '\\n' >> "$MOCK_LOG"
 [[ $MOCK_SMOKE_FAIL == no ]]
 BINARY
-        /bin/chmod +x target/release/nfgen
+        /bin/chmod +x target/release/nfv9gen
         ;;
     rustup)
         if [[ $1 == toolchain ]]; then /usr/bin/touch "$MOCK_STATE/rust-ready";
@@ -57,7 +57,7 @@ esac
 `;
 let count = 0;
 function check(options = {}) {
-    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'nfgen-build-test-'));
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'nfv9gen-build-test-'));
     try {
         const project = path.join(temp, 'project with spaces'), bin = path.join(temp, 'bin');
         fs.mkdirSync(project); fs.mkdirSync(bin);
@@ -90,8 +90,8 @@ function check(options = {}) {
         if (options.excludes) assert.doesNotMatch(calls,options.excludes);
         if (!options.fail) {
             assert.match(calls,/cargo <build> <--release> <--locked> <--target-dir>/);
-            assert.match(calls,/nfgen <validate> <examples\/basic.json>/);
-            assert.match(calls,/nfgen <preview> <examples\/basic.json> <--kind> <data> <--hex>/);
+            assert.match(calls,/nfv9gen <validate> <examples\/basic.json>/);
+            assert.match(calls,/nfv9gen <preview> <examples\/basic.json> <--kind> <data> <--hex>/);
             assert.match(result.stdout,/Build complete:/);
         } else assert.doesNotMatch(result.stdout,/Build complete:/);
         count++;
@@ -119,6 +119,6 @@ check({cc:'missing',sudo:false,fail:true,excludes:/apt-get|cargo <build>/});
 check({sudoUser:'alice',fail:true,excludes:/sudo|cargo/});
 check({args:['--unknown'],fail:true,excludes:/sudo|cargo/});
 check({cc:'missing',packageFail:true,fail:true,excludes:/cargo <build>/});
-check({buildFail:true,fail:true,excludes:/nfgen </});
+check({buildFail:true,fail:true,excludes:/nfv9gen </});
 check({smokeFail:true,fail:true});
 console.log(`Passed ${count} build-script checks: distro packages, privilege boundaries, toolchain reuse/install, paths with spaces, and failure handling. No real packages or toolchains were installed.`);

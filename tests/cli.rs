@@ -7,7 +7,7 @@ use std::{
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 fn cli(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_nfgen"))
+    Command::new(env!("CARGO_BIN_EXE_nfv9gen"))
         .args(args)
         .output()
         .unwrap()
@@ -24,7 +24,7 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new(text: &str) -> Self {
         let path = std::env::temp_dir().join(format!(
-            "nfgen-test-{}-{}.json",
+            "nfv9gen-test-{}-{}.json",
             std::process::id(),
             ID.fetch_add(1, Ordering::Relaxed)
         ));
@@ -153,7 +153,7 @@ fn cli_rejects_conflicts_zero_and_nonfinite_durations() {
     }
     assert!(cli(&["--help"]).status.success());
     assert!(cli(&["send", "--help"]).status.success());
-    assert!(String::from_utf8_lossy(&cli(&["--version"]).stdout).contains("nfgen 0.1.0"));
+    assert!(String::from_utf8_lossy(&cli(&["--version"]).stdout).contains("nfv9gen 0.1.0"));
 }
 
 #[test]
@@ -177,7 +177,7 @@ fn help_explains_modes_limits_and_examples_in_short_and_long_forms() {
                 "8 MiB",
                 "500,000",
                 "64..=65507",
-                "nfgen validate",
+                "nfv9gen validate",
                 "random_between counts as one value",
                 "not cumulative sends",
             ],
@@ -462,7 +462,7 @@ fn error_reporting_to_full_stderr_exits_without_panicking() {
         .write(true)
         .open("/dev/full")
         .unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_nfgen"))
+    let output = Command::new(env!("CARGO_BIN_EXE_nfv9gen"))
         .args(["validate", file.path()])
         .stderr(full)
         .output()

@@ -1,8 +1,8 @@
-# NeoFlow Generator (nfgen)
+# NeuralEnsembleTelemetryFabricLuminalOracleWizard9
 
 [English (en-US)](README.md) | [繁體中文 (zh-TW)](README.zh-TW.md)
 
-**NeoFlow Generator**, abbreviated `nfgen`, is a NetFlow v9 traffic generator written in Rust. Load JSON, validate the configuration, preview it offline, and send it over UDP. It supports 53 regular fields, five Options scopes, IPv4/IPv6, interfaces, ASNs, ICMP, MPLS, range expansion, and random L4 port / IN_PKTS / IN_BYTES values.
+**NeuralEnsembleTelemetryFabricLuminalOracleWizard9** (executable: `nfv9gen`) is a NetFlow v9 traffic generator written in Rust. Load JSON, validate the configuration, preview it offline, and send it over UDP. It supports 53 regular fields, five Options scopes, IPv4/IPv6, interfaces, ASNs, ICMP, MPLS, range expansion, and random L4 port / IN_PKTS / IN_BYTES values.
 
 | Task | Documentation or tool |
 |---|---|
@@ -24,6 +24,33 @@ The CLI and HTML interface use US English. Both documentation editions show the 
 
 ## Build and quick start
 
+### Download a prebuilt binary
+
+Open this repository's **Releases** page and download `nfv9gen-linux-x86_64.tar.gz` and its `.sha256` file. The binary targets Linux x86-64 with glibc 2.35 or newer (Ubuntu 22.04 or newer, including WSL2). Other systems can build from source below.
+
+```bash
+sha256sum -c nfv9gen-linux-x86_64.tar.gz.sha256
+tar -xzf nfv9gen-linux-x86_64.tar.gz
+cd nfv9gen-linux-x86_64
+./nfv9gen --version
+./nfv9gen validate examples/basic.json
+```
+
+For the commands below, replace `./target/release/nfv9gen` with `./nfv9gen` when using this download.
+
+### Automated builds and releases
+
+GitHub Actions tests and builds every push to `main`. **Actions → Build and release → Run workflow** also builds without publishing when run on `main`. Download the archive and checksum from the completed run's artifacts.
+
+To publish a version, update `Cargo.toml` and `Cargo.lock`, commit and push the changes, then push a matching version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Use a new tag for each release. After tests and compilation pass, the workflow creates a GitHub Release containing the binary archive and checksum. It uses GitHub's automatic token; no personal access token or repository secret is needed.
+
 ### Automatic build (recommended)
 
 Download and extract this project from GitHub (**Code → Download ZIP**), then open a terminal in the folder containing `build.sh`. Run:
@@ -34,7 +61,7 @@ bash build.sh
 
 The script detects Linux and your CPU architecture, checks the C compiler/linker, and installs missing system prerequisites on Ubuntu/Debian, Fedora/RHEL-compatible systems, openSUSE, and Arch-based systems. It reuses Rust when it meets the minimum in Cargo.toml; otherwise it installs a minimal stable toolchain using [official rustup](https://rust-lang.github.io/rustup/concepts/profiles.html). It then builds with locked dependencies and checks the version, basic configuration, and offline packet preview. No packets are sent.
 
-Run it **without sudo**. The script requests sudo only if system packages are missing; package installation and the first Rust/dependency downloads need internet access. It automatically accepts package/Rust installation prompts; sudo may still ask for your login password. It does not install the application system-wide. The executable is `target/release/nfgen`, and the script prints its absolute path when finished.
+Run it **without sudo**. The script requests sudo only if system packages are missing; package installation and the first Rust/dependency downloads need internet access. It automatically accepts package/Rust installation prompts; sudo may still ask for your login password. It does not install the application system-wide. The executable is `target/release/nfv9gen`, and the script prints its absolute path when finished.
 
 You can rerun `bash build.sh` after updating the source. Existing tools and cached build output are reused. On other distributions, install the C compiler/linker, curl, and CA certificates manually first; the script can then set up Rust and build. On Arch, keep the system/package databases current before running the script; it does not perform a full system upgrade. Failures stop the build and print an error; fix that error before rerunning.
 
@@ -44,7 +71,7 @@ If you prefer to install the tools yourself, follow these steps.
 
 This walkthrough uses **Ubuntu or Debian Linux**, including Ubuntu inside WSL2. You need internet access for installation and the first build, plus a user account that can run `sudo` to install packages. On other Linux distributions, install their C compiler/linker and curl packages before following the Rust and build steps.
 
-Run commands in a **Terminal**, one code block at a time. Copy only the commands, not the output examples. When `sudo` asks for your login password, typing shows no characters; enter it and press Enter. Use `sudo` only for the package-installation commands below. Build and run nfgen as your normal user.
+Run commands in a **Terminal**, one code block at a time. Copy only the commands, not the output examples. When `sudo` asks for your login password, typing shows no characters; enter it and press Enter. Use `sudo` only for the package-installation commands below. Build and run NeuralEnsembleTelemetryFabricLuminalOracleWizard9 as your normal user.
 
 ### 1. Install the Linux build tools
 
@@ -100,17 +127,17 @@ cargo build --release --locked
 
 The first build downloads dependencies and compiles them, so it may take several minutes. Wait for a successful `Finished` message and for the terminal prompt to return. `--release` builds the optimized executable; `--locked` uses the dependency versions in `Cargo.lock`.
 
-The finished program is **`target/release/nfgen`**, inside the project folder. You do not need `cargo install` or a system-wide installation.
+The finished program is **`target/release/nfv9gen`**, inside the project folder. You do not need `cargo install` or a system-wide installation.
 
 ### 5. Check your build without a collector
 
 ```sh
-./target/release/nfgen --version
-./target/release/nfgen validate examples/basic.json
-./target/release/nfgen preview examples/basic.json --kind data --hex
+./target/release/nfv9gen --version
+./target/release/nfv9gen validate examples/basic.json
+./target/release/nfv9gen preview examples/basic.json --kind data --hex
 ```
 
-`--version` should show `nfgen 0.1.0`. The `./` prefix tells Linux to run the file at this relative path. Validation should print:
+`--version` should show `nfv9gen 0.1.0`. The `./` prefix tells Linux to run the file at this relative path. Validation should print:
 
 ```text
 Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets
@@ -123,18 +150,18 @@ Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets
 The example `192.0.2.20:7777` is a documentation address, not a working collector. Replace it with your real collector IP/UDP port. Complete [Start the collector](#start-the-collector) first, keeping the listener, target, and capture filters consistent, then send:
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777
 ```
 
 Without `--rate`, the default target is **20 packets/second**, shared by the entire configuration. Without `--count` or `--duration`, the program sends one cycle: all templates followed by each data packet once. Specify a duration for continuous sending, or use `--duration 0` to run until Ctrl-C/SIGTERM:
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 20 --duration 10
 ```
 
-After updating the program, run `cargo build --release --locked` again. Add `--offline` when dependencies are cached. All commands assume the project root as the working directory. If you copied the executable to `./nfgen`, substitute that path in the commands.
+After updating the program, run `cargo build --release --locked` again. Add `--offline` when dependencies are cached. All commands assume the project root as the working directory. If you copied the executable to `./nfv9gen`, substitute that path in the commands.
 
 ### If a build step fails
 
@@ -145,7 +172,7 @@ After updating the program, run `cargo build --release --locked` again. Add `--o
 | `could not find Cargo.toml` | You are in the wrong folder; return to the extracted folder containing Cargo.toml and repeat step 3's `ls` check |
 | Rust version is too old / a dependency requires a newer rustc | For a rustup installation, run `rustup update stable` and `rustup default stable`, check `rustc --version`, then build again |
 | Dependency download or name-resolution errors | Check internet/proxy access and retry; `--offline` only works after every required dependency is cached |
-| `./target/release/nfgen: No such file or directory` | Confirm the build finished successfully and you are still in the project root; run `ls -l target/release/nfgen` |
+| `./target/release/nfv9gen: No such file or directory` | Confirm the build finished successfully and you are still in the project root; run `ls -l target/release/nfv9gen` |
 
 ## Start the collector
 
@@ -160,23 +187,23 @@ Remote IPv4 sending requires a listener on `192.0.2.20:7777` or `0.0.0.0:7777`; 
 If you already have a production collector, enable its NetFlow v9 listening port through that system's settings. With the official nfdump tools, you can start a test receiver with nfcapd. Run this in a terminal on the collector:
 
 ```sh
-NFGEN_FLOW_DIR=$(mktemp -d /tmp/nfgen-collector.XXXXXX)
-printf '%s\n' "$NFGEN_FLOW_DIR"
-nfcapd -l "$NFGEN_FLOW_DIR" -b 0.0.0.0 -p 7777 -t 60 -E
+NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR=$(mktemp -d /tmp/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-collector.XXXXXX)
+printf '%s\n' "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfcapd -l "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -b 0.0.0.0 -p 7777 -t 60 -E
 ```
 
 Leave nfcapd in the foreground and check `ss` from another terminal. Do not start a second receiver on the same port. `-E` enables decoding observation; newer versions also offer `-v 3`. For the 1.6 series, check local `nfcapd -h` and add `-T all` to retain additional fields. See the [official nfcapd manual](https://github.com/phaag/nfdump/blob/master/man/nfcapd.1).
 
-If no program receives UDP on the destination port, the OS may return ICMP Port Unreachable. nfgen stops when it receives `Connection refused`. A packet capture tool alone does not replace a UDP receiver.
+If no program receives UDP on the destination port, the OS may return ICMP Port Unreachable. NeuralEnsembleTelemetryFabricLuminalOracleWizard9 stops when it receives `Connection refused`. A packet capture tool alone does not replace a UDP receiver.
 
 ## First send and verification
 
 ### Send a configuration and read the results
 
-The CLI accepts both HTML-generated `nfgen.json` and handwritten JSON. Start with the basic example, then substitute your configuration:
+The CLI accepts both HTML-generated `NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json` and handwritten JSON. Start with the basic example, then substitute your configuration:
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777
 ```
 
@@ -185,11 +212,11 @@ Without count/duration, the basic example sends **one template packet and one da
 When collecting with official nfcapd, return to its terminal after sending and press Ctrl-C. Wait for it to exit and finish writing, then run these commands in that same terminal:
 
 ```sh
-ls -lh "$NFGEN_FLOW_DIR"
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw
+ls -lh "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 -o raw
 ```
 
-If you switch terminals, set NFGEN_FLOW_DIR to the directory printed earlier. Do not read `nfcapd.current.*` files while they are being written. Start without aggregation or time filters so received data is not hidden. See the [official nfdump manual](https://github.com/phaag/nfdump/blob/master/man/nfdump.1).
+If you switch terminals, set NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR to the directory printed earlier. Do not read `nfcapd.current.*` files while they are being written. Start without aggregation or time filters so received data is not hidden. See the [official nfdump manual](https://github.com/phaag/nfdump/blob/master/man/nfdump.1).
 
 ### Distinguish tools named nfdump
 
@@ -215,7 +242,7 @@ sudo tcpdump -ni any -nn \
 Replace the source IP with the actual PC address. After NAT, the collector may see a different address. To save complete packets for Wireshark, use:
 
 ```sh
-sudo tcpdump -ni any -s 0 -w /tmp/nfgen-test.pcap 'udp dst port 7777'
+sudo tcpdump -ni any -s 0 -w /tmp/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-test.pcap 'udp dst port 7777'
 ```
 
 ## HTML JSON builder
@@ -225,8 +252,8 @@ Open [config-builder.html](config-builder.html) in a modern browser. The page wo
 1. For existing JSON, choose a file under **Start here**, or expand **Paste JSON content** and select **Load pasted JSON**.
 2. New configurations start with an IPv4 TCP preset. Add IPv6, ICMP, Options, MPLS, or custom flows below.
 3. Set the Source ID, template IDs, and field values. Choose single values, multiple values, ranges, prefixes, or random values as needed.
-4. Review the preview and field errors. Download `nfgen.json` when the status says **Ready to download**.
-5. Run `nfgen validate nfgen.json` and `nfgen preview nfgen.json`, then send with `nfgen send`.
+4. Review the preview and field errors. Download `NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json` when the status says **Ready to download**.
+5. Run `nfv9gen validate NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json` and `nfv9gen preview NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json`, then send with `nfv9gen send`.
 
 | Feature | Behavior |
 |---|---|
@@ -301,8 +328,8 @@ Each flow still forms its own Cartesian product; values do not combine across fl
 Only these two records are produced; source .1 does not combine with destination .2 or other cross-flow values:
 
 ```sh
-./target/release/nfgen validate examples/shared-template.json
-./target/release/nfgen preview examples/shared-template.json --template-id 256 --kind data
+./target/release/nfv9gen validate examples/shared-template.json
+./target/release/nfv9gen preview examples/shared-template.json --template-id 256 --kind data
 ```
 
 Expect **one template, two records, and two data packets**. Each flow must supply all its own field values; values are not inherited. In HTML, select **Duplicate with shared template** and edit the values. If you change structure, update all flows sharing the ID or assign a new ID. Different IDs are not merged automatically, even when their structures match.
@@ -358,7 +385,7 @@ In the default all mode, initial/refreshed templates are extra and do not count 
 `preview` estimates collector IN/OUT average bps and pps after per-minute aggregation, without creating sockets or sending packets. The send plan shows the same estimates:
 
 ```sh
-./target/release/nfgen preview examples/basic.json --kind data --rate 20
+./target/release/nfv9gen preview examples/basic.json --kind data --rate 20
 ```
 
 The basic example has one record and one data packet per cycle, with IN_PKTS=10 and IN_BYTES=1000. Expected table:
@@ -396,11 +423,11 @@ Previously recorded release measurements used `validate` to build 500,000 record
 | Range `0..=499999` | About 5 MiB |
 | JSON array listing 500,000 integers | About 22 MiB |
 
-The same array case used about 48 MiB before optimization, a reduction of about 55%. These are measurements for one configuration, not guarantees for all configurations or long runs. On Linux, measure your own peak with `/usr/bin/time -v ./target/release/nfgen validate nfgen.json`. There is no automatic RAM estimate or memory-budget option.
+The same array case used about 48 MiB before optimization, a reduction of about 55%. These are measurements for one configuration, not guarantees for all configurations or long runs. On Linux, measure your own peak with `/usr/bin/time -v ./target/release/nfv9gen validate NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json`. There is no automatic RAM estimate or memory-budget option.
 
 ### IN/OUT counters
 
-`IN_PKTS`, `IN_BYTES`, `OUT_PKTS`, and `OUT_BYTES` are 4-byte nonnegative integers in `0..=4294967295`. They describe traffic inside records, rather than the actual UDP packets sent by nfgen, and do not accumulate automatically on repeated sends.
+`IN_PKTS`, `IN_BYTES`, `OUT_PKTS`, and `OUT_BYTES` are 4-byte nonnegative integers in `0..=4294967295`. They describe traffic inside records, rather than the actual UDP packets sent by NeuralEnsembleTelemetryFabricLuminalOracleWizard9, and do not accumulate automatically on repeated sends.
 
 In HTML, choose **Calculate from PKTS** under **Value mode** for IN_BYTES/OUT_BYTES, then enter a positive integer average packet size in bytes/packet. The same flow must contain the corresponding PKTS field as a single value:
 
@@ -562,9 +589,9 @@ See [options.json](examples/options.json) for multiple scopes. Its interval is 1
 ## CLI
 
 ```text
-nfgen validate CONFIG [--packet-size BYTES]
-nfgen preview CONFIG [--packet-size BYTES] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
-nfgen send CONFIG [OPTIONS]
+nfv9gen validate CONFIG [--packet-size BYTES]
+nfv9gen preview CONFIG [--packet-size BYTES] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
+nfv9gen send CONFIG [OPTIONS]
 # Any command also accepts -s/--silent: print only done or fail
 ```
 
@@ -603,7 +630,7 @@ Preview lists field lengths, counts, first/last values, and expansion formulas. 
 
 Either refresh threshold triggers all templates before the next data packet. Each run starts sequence at 0; it increments after every successfully sent datagram, shared by templates and data, with natural wrapping.
 
-Before sending, the plan shows source/destination, configuration summary, mode/rate/stop condition, UDP payload range, refresh rules, and rates by template. Use `nfgen preview CONFIG --template-id ID` for structure, first/last values, and random ranges. When stdout and stderr are terminals, progress updates in place. If either is redirected, stderr receives statistics every five seconds without terminal control codes: elapsed seconds, cumulative packets/records/bytes, and average packet rate. Use `--duration 0 >send.log 2>&1` to log continuous runs. Completion or Ctrl-C/SIGTERM produces a two-line summary of elapsed hours/minutes/seconds, data/template packets, records, UDP payload MiB, and average data packets/s. Transport errors immediately report failure without a normal completion summary.
+Before sending, the plan shows source/destination, configuration summary, mode/rate/stop condition, UDP payload range, refresh rules, and rates by template. Use `nfv9gen preview CONFIG --template-id ID` for structure, first/last values, and random ranges. When stdout and stderr are terminals, progress updates in place. If either is redirected, stderr receives statistics every five seconds without terminal control codes: elapsed seconds, cumulative packets/records/bytes, and average packet rate. Use `--duration 0 >send.log 2>&1` to log continuous runs. Completion or Ctrl-C/SIGTERM produces a two-line summary of elapsed hours/minutes/seconds, data/template packets, records, UDP payload MiB, and average data packets/s. Transport errors immediately report failure without a normal completion summary.
 
 High stream rates depend on scheduler precision. Burst reduces individual waiting overhead without guaranteeing the target rate. Configurations and packets are prepared once rather than copied by count. random_between and random_file fields are rewritten before sending. FIRST_SWITCHED/LAST_SWITCHED remain configured values and do not update with time.
 
@@ -611,20 +638,20 @@ High stream rates depend on scheduler precision. Burst reduces individual waitin
 
 ```sh
 # Send 100 data packets; templates are extra
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 10 --count 100
 
 # Send for 10 seconds; count and duration cannot be combined
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 20 --duration 10
 
 # Run until Ctrl-C/SIGTERM; log statistics every 5 seconds
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --rate 20 --duration 0 \
   >send.log 2>&1
 
 # Send in bursts and adjust template refresh thresholds
-./target/release/nfgen send examples/ranges.json \
+./target/release/nfv9gen send examples/ranges.json \
   --target 192.0.2.20:7777 --mode burst --burst-size 64 \
   --rate 10000 --count 10000 --template-every 100 --template-interval 5
 ```
@@ -645,12 +672,12 @@ Read the log from another terminal with `tail -f send.log`. Record totals includ
 ### Set the actual UDP source IP
 
 ```sh
-./target/release/nfgen send examples/basic.json \
+./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --bind 192.0.2.10:55000
 ```
 
 ```sh
-sudo ./target/release/nfgen send examples/basic.json \
+sudo ./target/release/nfv9gen send examples/basic.json \
   --target 192.0.2.20:7777 --source 198.51.100.123:55000
 ```
 
@@ -663,7 +690,7 @@ When running templates/data separately, preserve source_id, source IP:port, temp
 Add `-s` / `--silent` to any command to print only `done` or `fail` on stdout, with no progress, statistics, or error details. Exit codes are unchanged. Argument errors are still reported by the argument parser.
 
 ```bash
-nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
+nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100 --silent
 ```
 
 ### Exit codes
@@ -758,7 +785,7 @@ These 53 regular field IDs, lengths, and types are defined in [src/fields.rs](sr
 The all-fields configuration has 14 data packets and 22 records per cycle: 17 regular flow records and five Options records. Start the collector on the destination port, then run:
 
 ```sh
-./target/release/nfgen send examples/collector-all-fields.json \
+./target/release/nfv9gen send examples/collector-all-fields.json \
   --target 192.0.2.20:7777 \
   --kind all --rate 10 --count 140 --template-every 14
 ```
@@ -768,7 +795,7 @@ This sends ten cycles: 170 regular records and 50 Options records. Without loss,
 Validation should report Source ID=424242, 14 templates, 22 records, and 14 data packets. Preview one group with:
 
 ```sh
-./target/release/nfgen preview examples/collector-all-fields.json \
+./target/release/nfv9gen preview examples/collector-all-fields.json \
   --template-id 1005 --kind data --hex --limit 1
 ```
 
@@ -778,12 +805,12 @@ See [COLLECTOR-TEST.md](COLLECTOR-TEST.md) for field coverage, expected groups, 
 
 `collector-all-fields.json` is 15,629 bytes. Removing indentation produces 7,259 bytes, about 53.6% smaller, with equivalent configuration and packet contents. Only whitespace is removed; keys remain name/value. Prefixes and ranges can reduce repetition but must preserve the intended fields and values. Changing field order changes templates, so these are not universally lossless substitutions.
 
-Use Python to remove indentation, then validate the result. Running nfgen itself does not require Python:
+Use Python to remove indentation, then validate the result. Running NeuralEnsembleTelemetryFabricLuminalOracleWizard9 itself does not require Python:
 
 ```sh
 python3 -c 'import json,sys; json.dump(json.load(sys.stdin),sys.stdout,separators=(",",":"))' \
-  < nfgen.json > nfgen.min.json
-./target/release/nfgen validate nfgen.min.json
+  < NeuralEnsembleTelemetryFabricLuminalOracleWizard9.json > NeuralEnsembleTelemetryFabricLuminalOracleWizard9.min.json
+./target/release/nfv9gen validate NeuralEnsembleTelemetryFabricLuminalOracleWizard9.min.json
 ```
 
 Removing whitespace does not shrink NetFlow packets. Conversion tools may lose precision for large numbers written as floating-point values; use the required integer format.
@@ -796,7 +823,7 @@ Distribute the release executable, required JSON, HTML, and documentation. Sourc
 
 | Symptom | Check and action |
 |---|---|
-| `Connection refused (os error 111)` | Check the target UDP listener and firewall first; nfgen stops on the error; do not assume a field-format problem |
+| `Connection refused (os error 111)` | Check the target UDP listener and firewall first; NeuralEnsembleTelemetryFabricLuminalOracleWizard9 stops on the error; do not assume a field-format problem |
 | Capture shows packets, production system has no data | Check UDP receipt, source allowlists, template parsing, file writes, and ingestion logs separately |
 | `invalid netflow version` | An all-UDP filter may include unrelated traffic; narrow it to the real source IP/destination port and retain a pcap |
 | Stops after a short send | Without count/duration, only one cycle is sent; use --duration 0 for continuous sending |
@@ -821,7 +848,7 @@ Distribute the release executable, required JSON, HTML, and documentation. Sourc
 | Packet/byte counts grow | Check collector sampling multipliers and aggregation; the all-fields baseline interval is 1 |
 | Draft not saved or restored | Enable drafts explicitly; they exist only in this browser; check storage restrictions and download a backup |
 
-For issue reports, retain the command, nfgen and collector versions, send summary, receipt logs, and a pcap when needed. Compare packets with the configuration before attributing the issue to sending, decoding, storage, or display.
+For issue reports, retain the command, NeuralEnsembleTelemetryFabricLuminalOracleWizard9 and collector versions, send summary, receipt logs, and a pcap when needed. Compare packets with the configuration before attributing the issue to sending, decoding, storage, or display.
 
 ## Development checks
 

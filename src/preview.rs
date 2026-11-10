@@ -3,7 +3,7 @@ use std::{
     net::{Ipv4Addr, Ipv6Addr},
 };
 
-use nfgen::{
+use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::{
     config::{Flow, Values},
     fields::{FieldSpec, Kind},
 };
@@ -157,7 +157,7 @@ pub fn flow(flow: &Flow, out: &mut impl Write) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nfgen::config::{self, Config};
+    use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::config::{self, Config};
 
     #[test]
     fn samples_decode_encoded_values_and_distinguish_scopes() {

@@ -206,7 +206,7 @@ Set MPLS labels and stack metadata explicitly in `fields`; flow-level `mpls_stac
 `IN_PKTS`/`OUT_PKTS` are input/output packet counts inside records; `IN_BYTES`/`OUT_BYTES` are byte counts. They do not accumulate automatically on every send. bps uses BYTES × 8; pps uses PKTS. Per-minute totals divided by 60 seconds express average rates:
 
 ```sh
-./target/release/nfgen preview examples/shared-template.json --kind data --rate 20
+./target/release/nfv9gen preview examples/shared-template.json --kind data --rate 20
 ```
 
 The default rate is 20. Both example flows share Template 256; expected combined output:

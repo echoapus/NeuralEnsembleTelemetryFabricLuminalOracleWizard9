@@ -1,5 +1,5 @@
 use anyhow::Result;
-use nfgen::{
+use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::{
     config::{self, Config},
     protocol::{self, Plan},
 };

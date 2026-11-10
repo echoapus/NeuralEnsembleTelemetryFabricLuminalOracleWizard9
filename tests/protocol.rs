@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use nfgen::{
+use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::{
     config::{self, Config},
     protocol::{self, Plan},
     sender::{self, Kind, Mode, Settings},
@@ -1419,7 +1419,10 @@ fn random_file_draws_host_addresses_relative_to_the_config() {
     assert_eq!(&packet.bytes[24..28], &[192, 0, 2, 20]);
     assert_eq!(&packet.bytes[28..32], &[203, 0, 113, 1]);
 
-    let dir = std::env::temp_dir().join(format!("nfgen-random-file-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!(
+        "NeuralEnsembleTelemetryFabricLuminalOracleWizard9-random-file-{}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
     let one = |name: &str, file: &str, text: &str| {
         std::fs::write(dir.join(file), text).unwrap();
@@ -1429,8 +1432,16 @@ fn random_file_draws_host_addresses_relative_to_the_config() {
     };
     assert!(one("IPV6_SRC_ADDR", "v6.txt", "2001:db8::1\n\n2001:db8::2\n").is_ok());
     for (name, file, text) in [
-        ("IPV4_SRC_ADDR", "cidr-v4.txt", "192.0.2.1\n198.51.100.0/24\n"),
-        ("IPV6_SRC_ADDR", "cidr-v6.txt", "2001:db8::1\n2001:db8::2/64\n"),
+        (
+            "IPV4_SRC_ADDR",
+            "cidr-v4.txt",
+            "192.0.2.1\n198.51.100.0/24\n",
+        ),
+        (
+            "IPV6_SRC_ADDR",
+            "cidr-v6.txt",
+            "2001:db8::1\n2001:db8::2/64\n",
+        ),
         ("IPV4_SRC_ADDR", "v6-in-v4.txt", "2001:db8::1\n"),
         ("IPV4_SRC_ADDR", "empty.txt", "# nothing\n\n"),
         ("IPV4_SRC_ADDR", "bad.txt", "192.0.2.1\nnot-an-ip\n"),

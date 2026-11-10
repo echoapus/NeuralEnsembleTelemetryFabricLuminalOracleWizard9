@@ -20,9 +20,9 @@ nfdump -V
 Collect into a new dedicated directory to avoid mixing with existing traffic. These commands use UDP 2055. If that port is occupied, choose another, such as 12055, and update the PC target too. The collector firewall must allow the PC to reach that UDP port.
 
 ```sh
-NFGEN_FLOW_DIR=$(mktemp -d "$HOME/nfgen-collector.XXXXXX")
-printf '%s\n' "$NFGEN_FLOW_DIR"
-nfcapd -l "$NFGEN_FLOW_DIR" -p 2055 -t 60 -E
+NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR=$(mktemp -d "$HOME/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-collector.XXXXXX")
+printf '%s\n' "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfcapd -l "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -p 2055 -t 60 -E
 ```
 
 Leave this terminal open and send from the PC. nfcapd runs in the foreground. `-E` allows decoding observation; newer versions also offer `-v 3`. The nfdump 1.7 series dynamically stores supported extensions by default. For the 1.6 series, check local `nfcapd -h` and add `-T all` so interface, ASN, MPLS, and other extra data are retained. See the [official nfcapd manual](https://github.com/phaag/nfdump/blob/master/man/nfcapd.1).
@@ -35,8 +35,8 @@ Run from the project root:
 
 ```sh
 cargo build --release --locked
-./target/release/nfgen validate examples/collector-all-fields.json
-./target/release/nfgen preview examples/collector-all-fields.json --kind data --limit 14 --rate 10
+./target/release/nfv9gen validate examples/collector-all-fields.json
+./target/release/nfv9gen preview examples/collector-all-fields.json --kind data --limit 14 --rate 10
 ```
 
 Expected validation summary:
@@ -53,7 +53,7 @@ Preview and the send plan show a table with one row per regular template, listin
 
 This configuration has 14 data packets per cycle. At rate=10, Template 1000 estimates are approximately IN **5714.29 bps / 7.14 pps** and OUT **11428.57 bps / 14.29 pps**. Other regular templates get their own rows. Missing OUT counters show `-`; the five Options templates show only ID and `Options`, without simulated traffic estimates. Options data still consumes sending time.
 
-Send shows a short configuration summary and the complete rate table, without repeating per-field random ranges or the first few template structures. For details, use `nfgen preview examples/collector-all-fields.json --template-id 1000 --kind data --hex --limit 1 --rate 10`. After stopping, a two-line summary includes elapsed hours/minutes/seconds, data/template packets, records, UDP payload MiB, and average rate.
+Send shows a short configuration summary and the complete rate table, without repeating per-field random ranges or the first few template structures. For details, use `nfv9gen preview examples/collector-all-fields.json --template-id 1000 --kind data --hex --limit 1 --rate 10`. After stopping, a two-line summary includes elapsed hours/minutes/seconds, data/template packets, records, UDP payload MiB, and average rate.
 
 Estimates assume continuous cycles, complete receipt, aggregation by receipt time, and no sampling multiplier. Short runs still show long-term averages. These are not actual UDP bandwidth or rates derived by a collector from record duration, sampling, or aggregation. limit/template-id filter packet previews without narrowing estimates. Periodic sending statistics do not recalculate per-minute estimates.
 
@@ -62,7 +62,7 @@ Estimates assume continuous cycles, complete receipt, aggregation by receipt tim
 Replace the target below with your actual collector IP. Use `all` so templates and data are sent in one run; root and `--source` are unnecessary.
 
 ```sh
-./target/release/nfgen send examples/collector-all-fields.json \
+./target/release/nfv9gen send examples/collector-all-fields.json \
   --target 192.0.2.20:2055 \
   --kind all --rate 10 --count 140 --template-every 14
 ```
@@ -78,7 +78,7 @@ All transport may use IPv4 UDP while still testing IPv6 fields inside records. F
 After verifying ten cycles, test continuous sending separately. This command has no fixed cycle count, so the later ten-cycle row totals do not apply:
 
 ```sh
-./target/release/nfgen send examples/collector-all-fields.json \
+./target/release/nfv9gen send examples/collector-all-fields.json \
   --target 192.0.2.20:2055 --kind all --rate 20 \
   --duration 0 --template-every 14 >send.log 2>&1
 ```
@@ -89,11 +89,11 @@ When stdout and stderr are terminals, progress updates in place. With redirectio
 
 ## Stop collection and read completed files
 
-After PC sending completes, press Ctrl-C in the collector terminal. Wait for nfcapd to exit, then run the following. Do not read an active `nfcapd.current.*` file. If you switch terminals, first set `NFGEN_FLOW_DIR` to the directory printed earlier.
+After PC sending completes, press Ctrl-C in the collector terminal. Wait for nfcapd to exit, then run the following. Do not read an active `nfcapd.current.*` file. If you switch terminals, first set `NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR` to the directory printed earlier.
 
 ```sh
-ls -lh "$NFGEN_FLOW_DIR"
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw
+ls -lh "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR"
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 -o raw
 ```
 
 `-o raw` shows extensions retained in the file, **not a field-by-field dump of the original UDP packets**. `-N` disables numeric abbreviation and `-6` keeps complete IPv6 addresses. Do not aggregate with `-a` or `-A`, which can merge repeated records. See the [official nfdump manual](https://github.com/phaag/nfdump/blob/master/man/nfdump.1) for output and filtering.
@@ -101,7 +101,7 @@ nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw
 Summary table:
 
 ```sh
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 \
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 \
   -o 'fmt:%sa %da %pr %sp %dp %in %out %sas %das %ipkt %ibyt %opkt %obyt'
 ```
 
@@ -132,22 +132,22 @@ Runnable checks:
 
 ```sh
 # .0/32 keeps 1.1.1.0: one address, not zero records or a full /24
-nfdump -R "$NFGEN_FLOW_DIR" -N -o raw 'src ip 1.1.1.0'
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -o raw 'src ip 1.1.1.0'
 
 # Interface: five INPUT_SNMP values for one source; OUTPUT_SNMP stays 70002
-nfdump -R "$NFGEN_FLOW_DIR" -N \
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N \
   -o 'fmt:%sa %in %out %ipkt %ibyt' 'src ip 192.0.2.15'
 
 # Full IPv4 baseline: per-record input/output packets/bytes are 10/1000 and 20/2000
-nfdump -R "$NFGEN_FLOW_DIR" -N -o raw 'src ip 192.0.2.10'
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -o raw 'src ip 192.0.2.10'
 
 # MPLS: first label 16000, TC=3; tenth label 16009, BoS=1
-nfdump -R "$NFGEN_FLOW_DIR" -N \
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N \
   -o 'fmt:%sa %mpls1 %mpls2 %mpls3 %mpls4 %mpls5 %mpls6 %mpls7 %mpls8 %mpls9 %mpls10' \
   'src ip 192.0.2.16'
 
 # ICMPv4/v6: inspect type/code in raw output; TCP/UDP ports do not apply
-nfdump -R "$NFGEN_FLOW_DIR" -N -6 -o raw 'proto 1 or proto 58'
+nfdump -R "$NEURAL_ENSEMBLE_TELEMETRY_FABRIC_LUMINAL_ORACLE_WIZARD9_FLOW_DIR" -N -6 -o raw 'proto 1 or proto 58'
 ```
 
 For Template 1000, SRC_AS should be `65546` (the integer equivalent of `AS1.10`) and DST_AS `4200000000`. Next hops are `192.0.2.254` and `198.51.100.254`; INPUT/OUTPUT_SNMP are `70001/70002`. Template 1002's IPv6 next hops are `2001:db8:1002::ffff` and `2001:db8:2002::ffff`, with ASNs `65002/65556`.
@@ -169,7 +169,7 @@ MPLS labels 1–10 and extra metadata use different templates to simplify diagno
 To check whether a missing field exists on the wire, start capture in another collector terminal before sending again:
 
 ```sh
-sudo tcpdump -ni any -s 0 -w /tmp/nfgen-all-fields.pcap 'udp dst port 2055'
+sudo tcpdump -ni any -s 0 -w /tmp/NeuralEnsembleTelemetryFabricLuminalOracleWizard9-all-fields.pcap 'udp dst port 2055'
 ```
 
 After sending, press Ctrl-C and open the pcap in Wireshark. If needed, Decode As CFLOW/NetFlow for UDP 2055. Compare template IDs, field IDs, lengths, and data values. If the pcap contains correct fields/values that nfdump does not display, record this as that collector version not retaining/displaying them. For nfcapd length errors, discarded data, or misaligned fields, compare against the pcap to locate the problem.

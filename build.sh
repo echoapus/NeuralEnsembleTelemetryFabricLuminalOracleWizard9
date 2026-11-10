@@ -84,11 +84,11 @@ if ! rust_is_ready rustc || ! cargo --version >/dev/null 2>&1; then
     cargo_command=(rustup run stable cargo)
 fi
 
-printf 'Building nfgen...\n'
+printf 'Building nfv9gen...\n'
 # Keep the executable in the documented location even if CARGO_TARGET_DIR is set.
 "${cargo_command[@]}" build --release --locked --target-dir "$PWD/target"
-./target/release/nfgen --version
-./target/release/nfgen validate examples/basic.json
-./target/release/nfgen preview examples/basic.json --kind data --hex
-printf '\nBuild complete: %s/target/release/nfgen\n' "$PWD"
+./target/release/nfv9gen --version
+./target/release/nfv9gen validate examples/basic.json
+./target/release/nfv9gen preview examples/basic.json --kind data --hex
+printf '\nBuild complete: %s/target/release/nfv9gen\n' "$PWD"
 printf 'Next: start your collector, then use the send command in README.md.\n'

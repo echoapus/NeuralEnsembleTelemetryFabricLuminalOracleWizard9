@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::{Context, Result, ensure};
 use clap::{Args, Parser, Subcommand};
-use nfgen::{
+use neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::{
     config,
     protocol::{self, Plan},
     sender::{Kind, Mode, Settings},
@@ -22,9 +22,10 @@ static STOP: AtomicBool = AtomicBool::new(false);
 
 #[derive(Parser)]
 #[command(
+    name = "nfv9gen",
     version,
     about = "NetFlow v9 traffic generator: validate and preview before sending; no root required by default",
-    after_help = "Recommended workflow: validate → preview → send. Run nfgen <COMMAND> -h for all command options.\nConfiguration: JSON; flows with the same template_id can share a template structure. Each flow expands its values independently.\nField values support scalars, arrays, prefixes, or ranges; multiple values form a Cartesian product. L4 ports, IN_PKTS, and IN_BYTES also support random_between=[min,max] with inclusive bounds. IP fields support random_file=PATH (one address per line, sent as /32 or /128).\nExamples:\n  nfgen validate examples/basic.json\n  nfgen preview examples/interfaces.json --hex\n  nfgen send examples/basic.json --target 127.0.0.1:2055 --count 100\nMore examples: examples/options.json, ranges.json, mpls.json, asn.json, convenience.json, nexthop.json, random-ports.json, random-ips.json.\nOpen config-builder.html in a browser to fill out a form and download JSON.\nSee README.md for setup, configuration, CLI options, and the field reference.\nExit codes: 0 success, 1 configuration or runtime error, 2 argument error, 130 interrupted by user."
+    after_help = "Recommended workflow: validate → preview → send. Run nfv9gen <COMMAND> -h for all command options.\nConfiguration: JSON; flows with the same template_id can share a template structure. Each flow expands its values independently.\nField values support scalars, arrays, prefixes, or ranges; multiple values form a Cartesian product. L4 ports, IN_PKTS, and IN_BYTES also support random_between=[min,max] with inclusive bounds. IP fields support random_file=PATH (one address per line, sent as /32 or /128).\nExamples:\n  nfv9gen validate examples/basic.json\n  nfv9gen preview examples/interfaces.json --hex\n  nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100\nMore examples: examples/options.json, ranges.json, mpls.json, asn.json, convenience.json, nexthop.json, random-ports.json, random-ips.json.\nOpen config-builder.html in a browser to fill out a form and download JSON.\nSee README.md for setup, configuration, CLI options, and the field reference.\nExit codes: 0 success, 1 configuration or runtime error, 2 argument error, 130 interrupted by user."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -47,7 +48,7 @@ struct Input {
 enum Command {
     /// Validate all fields, ranges, and packet sizes without creating a socket
     #[command(
-        after_help = "Check JSON, template IDs, field values, combinations, and whether templates and individual records fit in a packet.\nOn success, show the Source ID, template count, configured records, and data packets per cycle.\nThe 500,000-record limit applies to expansion across all flows; random_between counts as one value and does not expand its range.\nExamples:\n  nfgen validate examples/interfaces.json\n  nfgen validate examples/ranges.json --packet-size 1200"
+        after_help = "Check JSON, template IDs, field values, combinations, and whether templates and individual records fit in a packet.\nOn success, show the Source ID, template count, configured records, and data packets per cycle.\nThe 500,000-record limit applies to expansion across all flows; random_between counts as one value and does not expand its range.\nExamples:\n  nfv9gen validate examples/interfaces.json\n  nfv9gen validate examples/ranges.json --packet-size 1200"
     )]
     Validate {
         #[command(flatten)]
@@ -55,7 +56,7 @@ enum Command {
     },
     /// Preview prebuilt packets without creating a socket
     #[command(
-        after_help = "Show field lengths, value counts, first and last values, and expansion formulas.\nPreview uses the current UNIX time, uptime=0, and sequence=0; it does not reuse a send session.\nrandom_between shows its range; hex uses the minimum value without sampling.\nExamples:\n  nfgen preview examples/interfaces.json --hex\n  nfgen preview examples/convenience.json --template-id 601 --kind data --limit 2"
+        after_help = "Show field lengths, value counts, first and last values, and expansion formulas.\nPreview uses the current UNIX time, uptime=0, and sequence=0; it does not reuse a send session.\nrandom_between shows its range; hex uses the minimum value without sampling.\nExamples:\n  nfv9gen preview examples/interfaces.json --hex\n  nfv9gen preview examples/convenience.json --template-id 601 --kind data --limit 2"
     )]
     Preview {
         #[command(flatten)]
@@ -78,7 +79,7 @@ enum Command {
     },
     /// Send UDP; by default, send templates followed by one cycle of data
     #[command(
-        after_help = "By default, send all templates, then one cycle of data packets at 20 data packets/s.\ncount/rate measure datagrams, not records: data packets for all/data, template packets for templates.\nThe 500,000-record limit applies to configured expansion; cumulative sent records may exceed it. Stopping by record count is not supported.\nrandom_between resamples each record on every send; duplicates are allowed. It does not increase configured records or change actual UDP ports.\nBefore sending, show the configuration summary and expected collector rates by template. Use preview for fields and random ranges.\nAutomatic templates in all mode are extra; refresh before the next data packet when either threshold is reached.\ndata mode requires the collector to have a matching template for the same source_id, source IP:port, and field definitions.\n--source uses Linux raw sockets without changing addresses in JSON; TTL/hop limit=64, with no fragmentation.\nActual rates depend on the OS and network. UDP success means the OS accepted the packet; it does not confirm collector receipt.\nCtrl-C / SIGTERM stops sending, prints statistics, and exits with code 130. Interactive terminals show progress; redirected output writes statistics to stderr every 5 seconds.\nExamples:\n  nfgen send examples/interfaces.json --target 127.0.0.1:2055 --count 100\n  nfgen send examples/basic.json --rate 1000 --duration 10\n  nfgen send examples/random-ports.json --rate 5 --duration 600\n  nfgen send examples/ranges.json --mode burst --burst-size 64 --rate 100000 --count 100000\n  nfgen send examples/basic.json --bind 127.0.0.1:5000\n  sudo nfgen send examples/basic.json --target 192.0.2.10:2055 --source 198.51.100.123:5000"
+        after_help = "By default, send all templates, then one cycle of data packets at 20 data packets/s.\ncount/rate measure datagrams, not records: data packets for all/data, template packets for templates.\nThe 500,000-record limit applies to configured expansion; cumulative sent records may exceed it. Stopping by record count is not supported.\nrandom_between resamples each record on every send; duplicates are allowed. It does not increase configured records or change actual UDP ports.\nBefore sending, show the configuration summary and expected collector rates by template. Use preview for fields and random ranges.\nAutomatic templates in all mode are extra; refresh before the next data packet when either threshold is reached.\ndata mode requires the collector to have a matching template for the same source_id, source IP:port, and field definitions.\n--source uses Linux raw sockets without changing addresses in JSON; TTL/hop limit=64, with no fragmentation.\nActual rates depend on the OS and network. UDP success means the OS accepted the packet; it does not confirm collector receipt.\nCtrl-C / SIGTERM stops sending, prints statistics, and exits with code 130. Interactive terminals show progress; redirected output writes statistics to stderr every 5 seconds.\nExamples:\n  nfv9gen send examples/interfaces.json --target 127.0.0.1:2055 --count 100\n  nfv9gen send examples/basic.json --rate 1000 --duration 10\n  nfv9gen send examples/random-ports.json --rate 5 --duration 600\n  nfv9gen send examples/ranges.json --mode burst --burst-size 64 --rate 100000 --count 100000\n  nfv9gen send examples/basic.json --bind 127.0.0.1:5000\n  sudo nfv9gen send examples/basic.json --target 192.0.2.10:2055 --source 198.51.100.123:5000"
     )]
     Send {
         #[command(flatten)]
@@ -310,7 +311,7 @@ fn send_estimate(
     if settings.kind != Kind::Templates {
         simulated_estimate(plan, flows, settings.rate, out)?;
     }
-    writeln!(out, "Details: nfgen preview CONFIG --template-id ID")
+    writeln!(out, "Details: nfv9gen preview CONFIG --template-id ID")
 }
 
 extern "C" fn interrupt(_: libc::c_int) {
@@ -483,7 +484,10 @@ fn execute(cli: Cli, out: &mut impl Write) -> Result<bool> {
                     .with_context(|| format!("Failed to resolve target {target:?}"))?
                     .find(|address| address.is_ipv4() == source.is_ipv4() && address.port() != 0)
                     .context("target must have a nonzero port and the same IP version as source")?;
-                let raw = nfgen::raw::RawSender::new(source, peer)?;
+                let raw =
+                    neural_ensemble_telemetry_fabric_luminal_oracle_wizard9::raw::RawSender::new(
+                        source, peer,
+                    )?;
                 (None, Some(raw), source, peer)
             } else {
                 let socket = connect(&target, bind)?;
@@ -803,8 +807,9 @@ mod tests {
 
     #[test]
     fn zero_duration_is_unlimited_only_for_send_duration() {
-        let cli = Cli::try_parse_from(["nfgen", "send", "examples/basic.json", "--duration", "0"])
-            .unwrap();
+        let cli =
+            Cli::try_parse_from(["nfv9gen", "send", "examples/basic.json", "--duration", "0"])
+                .unwrap();
         assert!(matches!(
             cli.command,
             Command::Send {
@@ -815,7 +820,7 @@ mod tests {
         ));
         assert!(
             Cli::try_parse_from([
-                "nfgen",
+                "nfv9gen",
                 "send",
                 "examples/basic.json",
                 "--duration",
