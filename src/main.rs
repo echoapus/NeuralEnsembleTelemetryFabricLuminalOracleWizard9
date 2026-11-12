@@ -24,7 +24,7 @@ static STOP: AtomicBool = AtomicBool::new(false);
 #[command(
     name = "nfv9gen",
     version,
-    about = "NetFlow v9 traffic generator: validate and preview before sending; no root required by default",
+    about = "NetFlow v9 / IPFIX traffic generator: validate and preview before sending; no root required by default",
     after_help = "Recommended workflow: validate → preview → send. Run nfv9gen <COMMAND> -h for all command options.\nConfiguration: JSON; flows with the same template_id can share a template structure. Each flow expands its values independently.\nField values support scalars, arrays, prefixes, or ranges; multiple values form a Cartesian product. L4 ports, IN_PKTS, and IN_BYTES also support random_between=[min,max] with inclusive bounds. IP fields support random_file=PATH (one address per line, sent as /32 or /128).\nExamples:\n  nfv9gen validate examples/basic.json\n  nfv9gen preview examples/interfaces.json --hex\n  nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100\nMore examples: examples/options.json, ranges.json, mpls.json, asn.json, convenience.json, nexthop.json, random-ports.json, random-ips.json.\nOpen config-builder.html in a browser to fill out a form and download JSON.\nSee README.md for setup, configuration, CLI options, and the field reference.\nExit codes: 0 success, 1 configuration or runtime error, 2 argument error, 130 interrupted by user."
 )]
 struct Cli {
@@ -39,9 +39,12 @@ struct Cli {
 struct Input {
     /// JSON configuration path; maximum 8 MiB and 500,000 expanded records (not cumulative sends); arrays determine field order
     config: PathBuf,
-    /// UDP payload limit (64..=65507 bytes), including the 20-byte NetFlow header but not IP/UDP headers; records are split into packets
+    /// UDP payload limit (64..=65507 bytes), including the 20-byte NetFlow (16-byte IPFIX) header but not IP/UDP headers; records are split into packets
     #[arg(long, default_value_t = protocol::DEFAULT_PACKET_SIZE as u32, value_parser = clap::value_parser!(u32).range(64..=65507))]
     packet_size: u32,
+    /// Send IPFIX (version 10) instead of NetFlow v9; required for IPFIX-only fields such as DATALINK_FRAME_SECTION
+    #[arg(long)]
+    ipfix: bool,
 }
 
 #[derive(Subcommand)]
@@ -145,11 +148,17 @@ fn prepare(input: &Input) -> Result<Plan> {
 }
 
 fn prepare_flows(input: &Input) -> Result<(Vec<config::Flow>, Plan)> {
-    let config = config::load(&input.config)?;
+    let mut config = config::load(&input.config)?;
+    config.ipfix = input.ipfix;
     let flows = config::validate(&config)?;
     let source_id = config.source_id;
     drop(config);
-    let plan = protocol::build(source_id, &flows, input.packet_size as usize)?;
+    let build = if input.ipfix {
+        protocol::build_ipfix
+    } else {
+        protocol::build
+    };
+    let plan = build(source_id, &flows, input.packet_size as usize)?;
     Ok((flows, plan))
 }
 
@@ -399,6 +408,7 @@ fn execute(cli: Cli, out: &mut impl Write) -> Result<bool> {
                 )?;
             }
             let mut number = 0u32;
+            let mut records = 0u32;
             let now = SystemTime::now();
             let source_id = plan.source_id;
             let total = plan
@@ -434,8 +444,11 @@ fn execute(cli: Cli, out: &mut impl Write) -> Result<bool> {
                         preview::flow(flow, out)?;
                     }
                 }
-                packet.stamp(source_id, number, Duration::ZERO, now)?;
-                let count = u16::from_be_bytes([packet.bytes[2], packet.bytes[3]]);
+                let sequence = if packet.is_ipfix() { records } else { number };
+                packet.stamp(source_id, sequence, Duration::ZERO, now)?;
+                records += u32::from(packet.data_records);
+                // A template packet counts as one record, as in the v9 header.
+                let count = packet.data_records.max(1);
                 writeln!(
                     out,
                     "#{number} {} template={} records={count} payload={} bytes",
@@ -606,6 +619,7 @@ mod tests {
         let (flows, plan) = prepare_flows(&Input {
             config: "examples/basic.json".into(),
             packet_size: 1400,
+            ipfix: false,
         })
         .unwrap();
         let mut settings = Settings {
@@ -733,6 +747,7 @@ mod tests {
         let (flows, plan) = prepare_flows(&Input {
             config: "examples/shared-template.json".into(),
             packet_size: 1400,
+            ipfix: false,
         })
         .unwrap();
         let settings = Settings {

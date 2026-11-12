@@ -1,0 +1,71 @@
+{
+  "source_id": 1,
+  "flows": [
+    {
+      "template_id": 2600,
+      "scope": [
+        {"name": "FLOW_EXPORTER", "value": 1}
+      ],
+      "fields": [
+        {"name": "SAMPLING_INTERVAL", "value": 1000}
+      ]
+    },
+    {
+      "template_id": 2000,
+      "fields": [
+        {"name": "INPUT_SNMP", "value": 1},
+        {"name": "OUTPUT_SNMP", "value": 0},
+        {"name": "DIRECTION", "value": 0},
+        {"name": "DATALINK_FRAME_SIZE", "value": 310},
+        {"name": "DATALINK_FRAME_SECTION", "value": {"frame": {
+          "clip": 126,
+          "length": 310,
+          "protocol": 6,
+          "src": {"start": "10.0.1.1", "end": "10.0.1.8"},
+          "dst": "198.51.100.50",
+          "src_port": {"random_between": [1024, 65535]},
+          "dst_port": [80, 443],
+          "tcp_flags": "SYN",
+          "tos": 0
+        }}}
+      ]
+    },
+    {
+      "template_id": 2000,
+      "fields": [
+        {"name": "INPUT_SNMP", "value": 2},
+        {"name": "OUTPUT_SNMP", "value": 5},
+        {"name": "DIRECTION", "value": 1},
+        {"name": "DATALINK_FRAME_SIZE", "value": 1200},
+        {"name": "DATALINK_FRAME_SECTION", "value": {"frame": {
+          "clip": 256,
+          "length": 1200,
+          "protocol": 17,
+          "src": "10.0.2.0/29",
+          "dst": "198.51.100.50",
+          "src_port": {"random_between": [1024, 65535]},
+          "dst_port": 53
+        }}}
+      ]
+    },
+    {
+      "template_id": 2000,
+      "fields": [
+        {"name": "INPUT_SNMP", "value": 3},
+        {"name": "OUTPUT_SNMP", "value": 0},
+        {"name": "DIRECTION", "value": 0},
+        {"name": "DATALINK_FRAME_SIZE", "value": 574},
+        {"name": "DATALINK_FRAME_SECTION", "value": {"frame": {
+          "clip": 256,
+          "length": 574,
+          "ipv6": true,
+          "protocol": 17,
+          "src": "2001:db8:1::10",
+          "dst": "2001:db8:2::20",
+          "src_port": 53000,
+          "dst_port": 53
+        }}}
+      ]
+    }
+  ]
+}

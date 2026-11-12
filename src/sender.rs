@@ -60,9 +60,15 @@ fn transmit(
             .randomize_fields(random)
             .context("Failed to generate random field values")?;
     }
+    // IPFIX numbers data records; NetFlow v9 numbers export packets.
+    let sequence = if packet.is_ipfix() {
+        stats.records
+    } else {
+        stats.packets
+    };
     packet.stamp(
         source_id,
-        stats.packets as u32,
+        sequence as u32,
         start.elapsed(),
         SystemTime::now(),
     )?;

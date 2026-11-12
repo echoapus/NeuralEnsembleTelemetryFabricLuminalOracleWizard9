@@ -37,7 +37,7 @@ pub fn validate(source: SocketAddr, target: SocketAddr) -> Result<()> {
     Ok(())
 }
 
-fn checksum(bytes: &[u8], mut sum: u32) -> u16 {
+pub(crate) fn checksum(bytes: &[u8], mut sum: u32) -> u16 {
     for pair in bytes.chunks(2) {
         sum += (pair[0] as u32) << 8 | pair.get(1).copied().unwrap_or(0) as u32;
     }

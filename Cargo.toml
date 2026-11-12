@@ -3,7 +3,7 @@ name = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9"
 version = "0.0.1"
 edition = "2024"
 rust-version = "1.85"
-description = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9: a validated NetFlow v9 generator with offline preview"
+description = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9: a validated NetFlow v9 and IPFIX generator with offline preview"
 license = "PolyForm-Noncommercial-1.0.0"
 
 [[bin]]

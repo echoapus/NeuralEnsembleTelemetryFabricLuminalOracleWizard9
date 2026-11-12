@@ -227,3 +227,16 @@ These estimates assume continuous sending, complete receipt, aggregation by rece
 All four JSON counters store actual values, without formulas. HTML can calculate IN_BYTES/OUT_BYTES as same-direction PKTS × average packet size, but requires a single PKTS value and exports an ordinary BYTES integer. Calculation settings are retained only in drafts; see [IN/OUT counters](README.md#inout-counters).
 
 This reference describes formats accepted by CLI JSON. HTML does not import `random_file`, ICMP ranges with named/object endpoints, or integers above JavaScript's safe range. Regular field values do not change actual UDP source/destination IPs, ports, or sending interfaces; CLI options control those.
+
+## IPFIX-only fields
+
+With `--ipfix`, the CLI emits IPFIX instead of NetFlow v9, `scope` takes regular field names instead of the five Options scopes above, and four more fields are accepted. Without the flag they fail validation. The HTML builder does not offer them.
+
+| Field | ID | Length | Value |
+|---|---:|---:|---|
+| `DIRECTION` | 61 | 1 | Integer; 0 = ingress, 1 = egress. Arrays and ranges accepted |
+| `FLOW_EXPORTER` | 144 | 4 | Integer 0..=4294967295. Arrays and ranges accepted |
+| `DATALINK_FRAME_SIZE` | 312 | 2 | Integer 0..=65535. Arrays and ranges accepted |
+| `DATALINK_FRAME_SECTION` | 315 | Variable | Hexadecimal string, array of equal-length hexadecimal strings, or a `frame` object |
+
+`DATALINK_FRAME_SECTION` cannot be a scope field. All sections in one flow must have the same length; use another flow (it may share the `template_id`) for a different length. The `frame` object and its keys are described in [IPFIX output](README.md#ipfix-output).

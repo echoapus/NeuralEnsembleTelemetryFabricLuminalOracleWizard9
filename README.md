@@ -16,7 +16,7 @@
 | Check combinations, RAM, and limits | [Record counts, packets, and configuration limits](#record-counts-packets-and-configuration-limits), [Memory usage](#memory-usage) |
 | Troubleshoot receipt or decoding | [Troubleshooting](#troubleshooting) |
 
-The current build targets Linux; Windows users can build and run it in WSL2. Output is always **NetFlow v9**. IPFIX v10, arbitrary field IDs, and enterprise PENs are not supported. Some extra fields use IANA IPFIX registry definitions, but the packet version remains v9 and the receiver must support those fields.
+The current build targets Linux; Windows users can build and run it in WSL2. Output is **NetFlow v9** by default; add `--ipfix` for [IPFIX output](#ipfix-output). Arbitrary field IDs and enterprise PENs are not supported. Some extra fields use IANA IPFIX registry definitions, but the packet version remains v9 and the receiver must support those fields.
 
 The CLI and HTML interface use US English. Both documentation editions show the actual English output and interface labels.
 
@@ -586,11 +586,58 @@ A complete configuration with sampling interval=1:
 
 See [options.json](examples/options.json) for multiple scopes. Its interval is 100, so collectors may scale packet/byte counts. The all-fields test uses interval=1 to avoid that effect. Options generally do not appear as regular flow rows, and supported scopes depend on the collector.
 
+## IPFIX output
+
+Add `--ipfix` to `validate`, `preview`, or `send` to emit IPFIX (version 10, RFC 7011) instead of NetFlow v9. Without the flag, output is unchanged NetFlow v9.
+
+```bash
+nfv9gen preview examples/ipfix-inline-monitoring.json --ipfix --hex
+nfv9gen send examples/ipfix-inline-monitoring.json --ipfix --target 192.0.2.10:4739
+```
+
+The default target port stays 2055; IPFIX collectors usually listen on 4739, so pass `--target`. `source_id` becomes the observation domain ID. The sequence number counts data records (Options records included) instead of packets.
+
+Differences from v9 configurations:
+
+- `scope` uses regular field names (IPFIX has no separate scope namespace), for example `FLOW_EXPORTER`. The v9 scope names `SYSTEM`, `INTERFACE`, `LINE_CARD`, `NETFLOW_CACHE`, and `TEMPLATE` are rejected.
+- Four fields exist only with `--ipfix`: `DIRECTION` (61), `FLOW_EXPORTER` (144), `DATALINK_FRAME_SIZE` (312), and `DATALINK_FRAME_SECTION` (315). Using them without the flag fails validation.
+- Configurations that use only regular v9 fields and no scope work in both modes.
+
+[ipfix-inline-monitoring.json](examples/ipfix-inline-monitoring.json) reproduces Junos inline monitoring export: Options template 2600 (`FLOW_EXPORTER` scope, `SAMPLING_INTERVAL`) and template 2000 (`INPUT_SNMP`, `OUTPUT_SNMP`, `DIRECTION`, `DATALINK_FRAME_SIZE`, `DATALINK_FRAME_SECTION`).
+
+### Sampled frame sections
+
+`DATALINK_FRAME_SECTION` is a variable-length field holding the first bytes of a sampled Ethernet frame. Give it either hexadecimal bytes (a string, or an array of equal-length strings) or a `frame` object that generates Ethernet, IP, and TCP/UDP headers:
+
+```json
+{"name": "DATALINK_FRAME_SECTION", "value": {"frame": {
+  "clip": 126, "length": 310, "protocol": 6,
+  "src": {"start": "10.0.1.1", "end": "10.0.1.8"}, "dst": "198.51.100.50",
+  "src_port": {"random_between": [1024, 65535]}, "dst_port": [80, 443],
+  "tcp_flags": "SYN", "tos": 0
+}}}
+```
+
+| Key | Default | Description |
+|---|---|---|
+| `protocol` | Required | 6 (TCP) or 17 (UDP) |
+| `src`, `dst` | Required | IPv4 addresses, or IPv6 with `"ipv6": true`; accept arrays, ranges, prefixes, and `random_file` |
+| `src_port`, `dst_port` | Required | 0–65535; accept arrays, ranges, and `random_between` |
+| `clip` | 126 | Exported bytes, starting at the Ethernet header; at least the header size (54 for IPv4 TCP, 42 for IPv4 UDP, 74/62 for IPv6) |
+| `length` | `clip` | Original frame length (`clip`..=65535); sets the IP and UDP length fields. Set `DATALINK_FRAME_SIZE` to the same value |
+| `ipv6` | false | Generate an IPv6 header |
+| `tcp_flags` | SYN | TCP only; same syntax as `TCP_FLAGS`, plus `random_between` |
+| `tos` | 0 | IPv4 only; 0–255, accepts `random_between` |
+
+Every section in one flow has the same length. For another `clip`, add another flow; flows with different clip lengths or IP versions may share a `template_id`. MAC addresses are fixed (`02:00:00:00:00:01` → `02:00:00:00:00:02`), TTL is 64, and bytes after the headers are zero. The IPv4 header checksum is always correct, including after random values are drawn; TCP/UDP checksums are placeholders because the clipped payload cannot be summed.
+
+Not supported: enterprise (PEN) fields, arbitrary field IDs, records of different lengths in one flow, TCP/SCTP transport, and the [HTML builder](config-builder.html), which remains NetFlow v9 only.
+
 ## CLI
 
 ```text
-nfv9gen validate CONFIG [--packet-size BYTES]
-nfv9gen preview CONFIG [--packet-size BYTES] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
+nfv9gen validate CONFIG [--packet-size BYTES] [--ipfix]
+nfv9gen preview CONFIG [--packet-size BYTES] [--ipfix] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
 nfv9gen send CONFIG [OPTIONS]
 # Any command also accepts -s/--silent: print only done or fail
 ```
@@ -600,6 +647,7 @@ nfv9gen send CONFIG [OPTIONS]
 | Option | Default | Description |
 |---|---|---|
 | `--packet-size BYTES` | 1400 | Shared by all three commands; 64–65507, including the 20-byte NetFlow header, excluding IP/UDP headers |
+| `--ipfix` | Off | Shared by all three commands; emit IPFIX instead of NetFlow v9 (16-byte header); see [IPFIX output](#ipfix-output) |
 | `--kind` | all | Preview: all, templates, data; all shows templates before data |
 | `--hex` | Off | Show the complete UDP payload in hexadecimal |
 | `--limit N` | 8 | Show at most N packets after filtering; at least 1; not records |

@@ -227,3 +227,16 @@ Template         IN bps         IN pps        OUT bps        OUT pps
 JSON 的四個計數器都保存實際值，不支援公式。HTML 可讓 IN_BYTES／OUT_BYTES 以「同方向 PKTS × 平均封包大小」計算，但只支援單一 PKTS，且匯出後是一般 BYTES 整數；連動設定僅隨草稿保留，見 [IN／OUT 計數器](README.zh-TW.md#inout-計數器)。
 
 本文件列的是 CLI JSON 接受的格式；HTML 不支援匯入 `random_file`、含名稱／物件的 ICMP range 或超過 JavaScript 安全整數的值。一般欄位值不會改變實際 UDP 的來源／目的 IP、port 或發送網卡；這些由 CLI 參數決定。
+
+## IPFIX 專用欄位
+
+加上 `--ipfix` 時，CLI 會送出 IPFIX 而非 NetFlow v9，`scope` 改用一般欄位名稱（不再是上述五個 Options scope），並多接受四個欄位。未加旗標時這些欄位會驗證失敗。HTML 產生器不提供這些欄位。
+
+| 欄位 | ID | 長度 | Value |
+|---|---:|---:|---|
+| `DIRECTION` | 61 | 1 | 整數；0 = ingress、1 = egress。可用陣列與 range |
+| `FLOW_EXPORTER` | 144 | 4 | 整數 0..=4294967295。可用陣列與 range |
+| `DATALINK_FRAME_SIZE` | 312 | 2 | 整數 0..=65535。可用陣列與 range |
+| `DATALINK_FRAME_SECTION` | 315 | 變動 | 十六進位字串、等長十六進位字串的陣列，或 `frame` 物件 |
+
+`DATALINK_FRAME_SECTION` 不能當 scope 欄位。同一個 flow 內每筆片段長度必須相同；需要不同長度時另開一個 flow（可共用 `template_id`）。`frame` 物件與各 key 的說明見 [IPFIX 輸出](README.zh-TW.md#ipfix-輸出)。

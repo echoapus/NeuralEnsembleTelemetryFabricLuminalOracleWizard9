@@ -25,6 +25,9 @@ pub struct Config {
     /// Directory that relative random_file paths resolve against; empty means the working directory.
     #[serde(skip)]
     pub base: PathBuf,
+    /// Set from --ipfix: selects the IPFIX field table and message encoding.
+    #[serde(skip)]
+    pub ipfix: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,15 +118,27 @@ pub struct Flow {
     pub columns: Vec<Column>,
     pub record_length: usize,
     pub record_count: usize,
+    /// Record offsets of generated IPv4 headers whose checksum must follow the field values.
+    pub ipv4_headers: Vec<usize>,
 }
 
 impl Flow {
+    /// Columns described in the template; id 0 marks bytes inside a variable-length element.
+    pub fn template_columns(&self) -> impl Iterator<Item = &Column> {
+        self.columns.iter().filter(|column| column.spec.id != 0)
+    }
+
     pub fn same_template(&self, other: &Self) -> bool {
-        self.scope_count == other.scope_count
-            && self.columns.len() == other.columns.len()
-            && self.columns.iter().zip(&other.columns).all(|(a, b)| {
-                a.name == b.name && a.spec.id == b.spec.id && a.spec.length == b.spec.length
-            })
+        // A variable-length element may differ in size between flows sharing a template.
+        let shape = |flow: &'_ Self| {
+            flow.template_columns()
+                .map(|c| {
+                    let length = if c.spec.variable { 0 } else { c.spec.length };
+                    (c.name.clone(), c.spec.id, c.spec.variable, length)
+                })
+                .collect::<Vec<_>>()
+        };
+        self.scope_count == other.scope_count && shape(self) == shape(other)
     }
 }
 
@@ -359,8 +374,225 @@ fn icmp_type(value: &Value, ipv6: bool) -> Result<u8> {
         .context("ICMP type must be an integer within 0..=255 or a supported name")
 }
 
+fn hex(text: &str) -> Result<Vec<u8>> {
+    ensure!(
+        !text.is_empty() && text.len() % 2 == 0 && text.bytes().all(|b| b.is_ascii_hexdigit()),
+        "Frame bytes must be an even-length hexadecimal string without separators, such as 0200000000020200000000010800"
+    );
+    Ok((0..text.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&text[at..at + 2], 16).unwrap())
+        .collect())
+}
+
+/// Expands DATALINK_FRAME_SECTION into its length prefix plus fixed-length inner columns.
+/// Returns the columns and, for generated IPv4 frames, the IP header offset within them.
+fn frame_section(value: &Value, base: &Path) -> Result<(Vec<Column>, Option<usize>)> {
+    const NAME: &str = "DATALINK_FRAME_SECTION";
+    let inner = |length, kind| FieldSpec {
+        id: 0,
+        length,
+        kind,
+        variable: false,
+    };
+    let fixed = |bytes: Vec<u8>| Column {
+        name: format!("{NAME}.FIXED"),
+        spec: inner(bytes.len(), Kind::Bytes),
+        values: Values::List {
+            length: bytes.len(),
+            bytes,
+        },
+    };
+    let prefix = |length: usize| {
+        // RFC 7011 section 7: one length byte below 255, otherwise 255 plus two bytes.
+        let bytes = if length < 255 {
+            vec![length as u8]
+        } else {
+            vec![255, (length >> 8) as u8, length as u8]
+        };
+        Column {
+            name: NAME.into(),
+            spec: FieldSpec {
+                id: 315,
+                length: bytes.len(),
+                kind: Kind::Bytes,
+                variable: true,
+            },
+            values: Values::List {
+                length: bytes.len(),
+                bytes,
+            },
+        }
+    };
+
+    let Some(frame) = value.as_object().and_then(|object| object.get("frame")) else {
+        let first = match value {
+            Value::Array(items) => items.first(),
+            other => Some(other),
+        };
+        let text = first.and_then(Value::as_str).context(
+            "DATALINK_FRAME_SECTION must be a hexadecimal string, an array of them, or a {\"frame\": {...}} object",
+        )?;
+        let length = hex(text)?.len();
+        ensure!(length <= 65535, "Frame section must not exceed 65535 bytes");
+        let spec = inner(length, Kind::Bytes);
+        let column = Column {
+            name: format!("{NAME}.BYTES"),
+            spec,
+            values: values(value, spec, NAME, base)?,
+        };
+        return Ok((vec![prefix(length), column], None));
+    };
+
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Frame {
+        #[serde(default = "default_clip")]
+        clip: usize,
+        length: Option<usize>,
+        #[serde(default)]
+        ipv6: bool,
+        protocol: u8,
+        src: Value,
+        dst: Value,
+        src_port: Value,
+        dst_port: Value,
+        tcp_flags: Option<Value>,
+        tos: Option<Value>,
+    }
+    fn default_clip() -> usize {
+        126
+    }
+    let frame: Frame = serde_json::from_value(frame.clone()).context(
+        "frame requires protocol, src, dst, src_port, dst_port; optional clip, length, ipv6, tcp_flags, tos",
+    )?;
+    ensure!(
+        value.as_object().is_some_and(|object| object.len() == 1),
+        "frame must be the only key in the value object"
+    );
+    let tcp = match frame.protocol {
+        6 => true,
+        17 => false,
+        other => bail!("frame.protocol must be 6 (TCP) or 17 (UDP), got {other}"),
+    };
+    ensure!(
+        tcp || frame.tcp_flags.is_none(),
+        "frame.tcp_flags requires protocol 6"
+    );
+    ensure!(
+        !frame.ipv6 || frame.tos.is_none(),
+        "frame.tos is only supported for IPv4"
+    );
+    let ip = if frame.ipv6 { 40 } else { 20 };
+    let headers = 14 + ip + if tcp { 20 } else { 8 };
+    let length = frame.length.unwrap_or(frame.clip);
+    ensure!(
+        frame.clip >= headers,
+        "frame.clip must be at least {headers} bytes to hold the Ethernet, IP, and L4 headers"
+    );
+    ensure!(
+        frame.clip <= length && length <= 65535,
+        "frame.length must be within clip..=65535 (the original frame is at least as long as the exported section)"
+    );
+    let field = |key: &str, rule: &str, kind, size, value: &Value| -> Result<Column> {
+        let spec = inner(size, kind);
+        Ok(Column {
+            name: format!("{NAME}.{}", key.to_ascii_uppercase()),
+            spec,
+            // `rule` borrows the value rules of the matching top-level field.
+            values: values(value, spec, rule, base).with_context(|| format!("frame.{key}"))?,
+        })
+    };
+    let word = |value: usize| (value as u16).to_be_bytes();
+    let first = prefix(frame.clip);
+    let mut ethernet = vec![2, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 1];
+    let mut columns;
+    let mut ipv4_header = None;
+    if frame.ipv6 {
+        ethernet.extend_from_slice(&[0x86, 0xdd, 0x60, 0, 0, 0]);
+        ethernet.extend_from_slice(&word(length - 54));
+        ethernet.extend_from_slice(&[frame.protocol, 64]);
+        columns = vec![
+            first,
+            fixed(ethernet),
+            field("src", "IPV6_SRC_ADDR", Kind::Ipv6, 16, &frame.src)?,
+            field("dst", "IPV6_DST_ADDR", Kind::Ipv6, 16, &frame.dst)?,
+        ];
+    } else {
+        ipv4_header = Some(first.spec.length + 14);
+        ethernet.extend_from_slice(&[0x08, 0x00, 0x45]);
+        let mut rest = word(length - 14).to_vec();
+        // ID, flags/fragment, TTL 64, protocol, checksum (filled in per record).
+        rest.extend_from_slice(&[0, 0, 0, 0, 64, frame.protocol, 0, 0]);
+        columns = vec![
+            first,
+            fixed(ethernet),
+            field(
+                "tos",
+                "SRC_TOS",
+                Kind::Number,
+                1,
+                frame.tos.as_ref().unwrap_or(&json!(0)),
+            )?,
+            fixed(rest),
+            field("src", "IPV4_SRC_ADDR", Kind::Ipv4, 4, &frame.src)?,
+            field("dst", "IPV4_DST_ADDR", Kind::Ipv4, 4, &frame.dst)?,
+        ];
+    }
+    columns.push(field(
+        "src_port",
+        "L4_SRC_PORT",
+        Kind::Number,
+        2,
+        &frame.src_port,
+    )?);
+    columns.push(field(
+        "dst_port",
+        "L4_DST_PORT",
+        Kind::Number,
+        2,
+        &frame.dst_port,
+    )?);
+    if tcp {
+        // Sequence and acknowledgment 0, data offset 5.
+        columns.push(fixed(vec![0, 0, 0, 0, 0, 0, 0, 0, 0x50]));
+        let syn = json!(2);
+        columns.push(field(
+            "tcp_flags",
+            "TCP_FLAGS",
+            Kind::Number,
+            1,
+            frame.tcp_flags.as_ref().unwrap_or(&syn),
+        )?);
+        // Window 65535; checksum and urgent pointer 0.
+        columns.push(fixed(vec![0xff, 0xff, 0, 0, 0, 0]));
+    } else {
+        let mut udp = word(length - 14 - ip).to_vec();
+        // shortcut: L4 checksums are placeholders (the clipped payload cannot be summed); compute them if a collector verifies.
+        // UDP over IPv6 forbids the zero "no checksum" value, so use a nonzero one there.
+        udp.extend_from_slice(if frame.ipv6 { &[0xff, 0xff] } else { &[0, 0] });
+        columns.push(fixed(udp));
+    }
+    if frame.clip > headers {
+        columns.push(fixed(vec![0; frame.clip - headers]));
+    }
+    Ok((columns, ipv4_header))
+}
+
 fn scalar(value: &Value, spec: FieldSpec, name: &str) -> Result<Vec<u8>> {
     match spec.kind {
+        Kind::Bytes => {
+            let bytes = hex(value
+                .as_str()
+                .context("Frame bytes must be a hexadecimal string")?)?;
+            ensure!(
+                bytes.len() == spec.length,
+                "Frame sections in one flow must all be {} bytes (got {}); use a separate flow for another length",
+                spec.length,
+                bytes.len()
+            );
+            Ok(bytes)
+        }
         Kind::Ipv4 | Kind::Ipv6 => {
             let value = value.as_str().context("IP field must be a string")?;
             let (number, length) = address(value, spec.kind)?;
@@ -548,8 +780,9 @@ fn values(value: &Value, spec: FieldSpec, name: &str, base: &Path) -> Result<Val
         struct RandomBetween {
             random_between: [u32; 2],
         }
+        // id 0 marks numeric fields inside a generated frame, which may all be randomized.
         ensure!(
-            matches!(name, "L4_SRC_PORT" | "L4_DST_PORT" | "IN_PKTS" | "IN_BYTES"),
+            spec.id == 0 || matches!(name, "L4_SRC_PORT" | "L4_DST_PORT" | "IN_PKTS" | "IN_BYTES"),
             "random_between is only supported for L4_SRC_PORT / L4_DST_PORT / IN_PKTS / IN_BYTES"
         );
         let random: RandomBetween = serde_json::from_value(value.clone())
@@ -707,32 +940,51 @@ pub fn validate(config: &Config) -> Result<Vec<Flow>> {
             let mut columns = Vec::new();
             let mut record_count = 1usize;
             let mut record_length = 0usize;
+            let mut ipv4_headers = Vec::new();
             for (scope, fields) in [(true, &input.scope), (false, &input.fields)] {
                 let mut names = HashSet::new();
                 for field in fields {
                     let name = field.name.to_ascii_uppercase();
-                    let result = (|| -> Result<Column> {
+                    let result = (|| -> Result<Vec<Column>> {
                         ensure!(
                             names.insert(name.clone()),
                             "Duplicate fields are not allowed"
                         );
-                        let spec = fields::lookup(&name, scope)?;
-                        let values = values(&field.value, spec, &name, &config.base)?;
-                        record_count = record_count
-                            .checked_mul(values.count())
-                            .context("Expanded record count overflow")?;
-                        ensure!(
-                            record_count <= MAX_RECORDS,
-                            "Expansion must not exceed {MAX_RECORDS} records"
-                        );
-                        record_length += spec.length;
-                        Ok(Column {
-                            name: name.clone(),
-                            spec,
-                            values,
-                        })
+                        let spec = match fields::lookup(&name, scope) {
+                            _ if config.ipfix => fields::lookup_ipfix(&name)?,
+                            Err(_)
+                                if fields::lookup(&name, false).is_err()
+                                    && fields::lookup_ipfix(&name).is_ok() =>
+                            {
+                                bail!("{name} is an IPFIX-only field; rerun with --ipfix")
+                            }
+                            other => other?,
+                        };
+                        let added = if spec.variable {
+                            ensure!(!scope, "{name} cannot be a scope field");
+                            let (added, ipv4_header) = frame_section(&field.value, &config.base)?;
+                            ipv4_headers.extend(ipv4_header.map(|at| record_length + at));
+                            added
+                        } else {
+                            vec![Column {
+                                name: name.clone(),
+                                spec,
+                                values: values(&field.value, spec, &name, &config.base)?,
+                            }]
+                        };
+                        for column in &added {
+                            record_count = record_count
+                                .checked_mul(column.values.count())
+                                .context("Expanded record count overflow")?;
+                            ensure!(
+                                record_count <= MAX_RECORDS,
+                                "Expansion must not exceed {MAX_RECORDS} records"
+                            );
+                            record_length += column.spec.length;
+                        }
+                        Ok(added)
                     })();
-                    columns.push(result.with_context(|| {
+                    columns.extend(result.with_context(|| {
                         format!(
                             "{}.{name}, input value: {}",
                             if scope { "scope" } else { "fields" },
@@ -747,6 +999,7 @@ pub fn validate(config: &Config) -> Result<Vec<Flow>> {
                 columns,
                 record_length,
                 record_count,
+                ipv4_headers,
             })
         })();
         let flow = result.with_context(|| context)?;

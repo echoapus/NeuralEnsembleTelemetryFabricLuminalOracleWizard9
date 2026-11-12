@@ -118,3 +118,14 @@ The [HTML builder](config-builder.html) supports the marked formats except `rand
 HTML additionally offers **Calculate from PKTS** for `IN_BYTES` and `OUT_BYTES`. This requires a single corresponding PKTS value; export stores an ordinary integer, not a formula. Calculation settings survive only in browser drafts.
 
 The old `{"random":true}` syntax and flow-level `mpls_stack` are rejected by both interfaces. See [Updating older configurations](README.md#updating-older-configurations).
+
+## IPFIX-only fields
+
+These fields are accepted only with `--ipfix`, in `fields` or (except `DATALINK_FRAME_SECTION`) in `scope`. With `--ipfix`, `scope` takes regular field names instead of the five v9 Options scopes. They are not available in the HTML builder. See [IPFIX output](README.md#ipfix-output) for the `frame` object.
+
+| Field | ID | Length | Value |
+|---|---:|---:|---|
+| `DIRECTION` | 61 | 1 | Integer; 0 = ingress, 1 = egress. Arrays and ranges accepted |
+| `FLOW_EXPORTER` | 144 | 4 | Integer 0..=4294967295. Arrays and ranges accepted |
+| `DATALINK_FRAME_SIZE` | 312 | 2 | Integer 0..=65535. Arrays and ranges accepted |
+| `DATALINK_FRAME_SECTION` | 315 | Variable | Hexadecimal string, array of equal-length hexadecimal strings, or a `frame` object |

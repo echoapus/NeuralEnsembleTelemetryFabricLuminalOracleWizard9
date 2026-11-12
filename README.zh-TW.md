@@ -16,7 +16,7 @@
 | 查組合數、RAM 與限制 | [紀錄數、封包數與設定上限](#紀錄數封包數與設定上限)、[記憶體用量](#記憶體用量) |
 | 遇到接收或解碼問題 | [常見問題](#常見問題) |
 
-目前針對 Linux 建置；Windows 可在 WSL2 內建置與執行。輸出固定為 **NetFlow v9**，不支援 IPFIX v10、任意欄位 ID 或企業自訂 PEN。部分額外欄位採用 IANA IPFIX registry 的定義，但封包版本仍為 v9，接收端需支援對應欄位。
+目前針對 Linux 建置；Windows 可在 WSL2 內建置與執行。輸出預設為 **NetFlow v9**；加上 `--ipfix` 可改送 [IPFIX](#ipfix-輸出)。不支援任意欄位 ID 或企業自訂 PEN。部分額外欄位採用 IANA IPFIX registry 的定義，但封包版本仍為 v9，接收端需支援對應欄位。
 
 <a id="build-and-quick-start"></a>
 
@@ -588,11 +588,58 @@ RD 固定 8 bytes，依 [RFC 4364 §4.2](https://www.rfc-editor.org/rfc/rfc4364.
 
 ASN 部分支援 AS 前綴與 asdot；未指定 type 時，ASN≤65535 選 Type 0，較大者選 Type 2。RD 可用值陣列，不支援 range。額外 metadata 的 ID／定義對照 [IANA IPFIX registry](https://www.iana.org/assignments/ipfix)，collector 需能處理它們在 v9 Template 中的固定長度。
 
+## IPFIX 輸出
+
+在 `validate`、`preview` 或 `send` 加上 `--ipfix`，就會送出 IPFIX（version 10，RFC 7011）而不是 NetFlow v9。不加旗標時輸出仍是原本的 NetFlow v9。
+
+```bash
+nfv9gen preview examples/ipfix-inline-monitoring.json --ipfix --hex
+nfv9gen send examples/ipfix-inline-monitoring.json --ipfix --target 192.0.2.10:4739
+```
+
+預設目標埠維持 2055；IPFIX Collector 通常聽 4739，請用 `--target` 指定。`source_id` 會成為 observation domain ID。Sequence 計算的是資料筆數（含 Options 資料），不是封包數。
+
+與 v9 設定的差異：
+
+- `scope` 使用一般欄位名稱（IPFIX 沒有獨立的 scope 編號），例如 `FLOW_EXPORTER`。v9 的 scope 名稱 `SYSTEM`、`INTERFACE`、`LINE_CARD`、`NETFLOW_CACHE`、`TEMPLATE` 會被拒絕。
+- 四個欄位只在 `--ipfix` 下可用：`DIRECTION` (61)、`FLOW_EXPORTER` (144)、`DATALINK_FRAME_SIZE` (312)、`DATALINK_FRAME_SECTION` (315)。未加旗標時使用會驗證失敗。
+- 只用一般 v9 欄位且沒有 scope 的設定，兩種模式都能用。
+
+[ipfix-inline-monitoring.json](examples/ipfix-inline-monitoring.json) 重現 Junos inline monitoring 的匯出格式：Options template 2600（scope `FLOW_EXPORTER`、`SAMPLING_INTERVAL`）與 template 2000（`INPUT_SNMP`、`OUTPUT_SNMP`、`DIRECTION`、`DATALINK_FRAME_SIZE`、`DATALINK_FRAME_SECTION`）。
+
+### 取樣封包片段
+
+`DATALINK_FRAME_SECTION` 是變動長度欄位，內容是被取樣 Ethernet 封包的前幾個 bytes。可以給十六進位內容（字串，或等長字串的陣列），或用 `frame` 物件自動產生 Ethernet、IP 與 TCP/UDP 標頭：
+
+```json
+{"name": "DATALINK_FRAME_SECTION", "value": {"frame": {
+  "clip": 126, "length": 310, "protocol": 6,
+  "src": {"start": "10.0.1.1", "end": "10.0.1.8"}, "dst": "198.51.100.50",
+  "src_port": {"random_between": [1024, 65535]}, "dst_port": [80, 443],
+  "tcp_flags": "SYN", "tos": 0
+}}}
+```
+
+| Key | 預設 | 說明 |
+|---|---|---|
+| `protocol` | 必填 | 6（TCP）或 17（UDP） |
+| `src`、`dst` | 必填 | IPv4 位址；加 `"ipv6": true` 則為 IPv6；可用陣列、range、prefix 與 `random_file` |
+| `src_port`、`dst_port` | 必填 | 0–65535；可用陣列、range 與 `random_between` |
+| `clip` | 126 | 匯出的 bytes 數，從 Ethernet 標頭起算；不得小於標頭長度（IPv4 TCP 54、IPv4 UDP 42、IPv6 為 74/62） |
+| `length` | 同 `clip` | 原始封包長度（`clip`..=65535），決定 IP 與 UDP 的長度欄位。`DATALINK_FRAME_SIZE` 請設成相同的值 |
+| `ipv6` | false | 產生 IPv6 標頭 |
+| `tcp_flags` | SYN | 僅 TCP；寫法同 `TCP_FLAGS`，另可用 `random_between` |
+| `tos` | 0 | 僅 IPv4；0–255，可用 `random_between` |
+
+同一個 flow 內每筆片段長度相同。需要另一種 `clip` 時再加一個 flow；不同 clip 長度或 IP 版本的 flow 可以共用同一個 `template_id`。MAC 位址固定（`02:00:00:00:00:01` → `02:00:00:00:00:02`），TTL 為 64，標頭之後的 bytes 為 0。IPv4 標頭 checksum 一律正確，隨機值抽出後也會重算；TCP/UDP checksum 只是佔位值，因為被截斷的 payload 無法計算。
+
+不支援：企業自訂（PEN）欄位、任意欄位 ID、同一 flow 內不同長度的紀錄、TCP/SCTP 傳輸，以及 [HTML 產生器](config-builder.html)（仍只支援 NetFlow v9）。
+
 ## CLI
 
 ```text
-nfv9gen validate CONFIG [--packet-size BYTES]
-nfv9gen preview CONFIG [--packet-size BYTES] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
+nfv9gen validate CONFIG [--packet-size BYTES] [--ipfix]
+nfv9gen preview CONFIG [--packet-size BYTES] [--ipfix] [--kind all|templates|data] [--hex] [--limit N] [--template-id ID] [--rate N]
 nfv9gen send CONFIG [OPTIONS]
 # 所有指令都可加 -s/--silent：只輸出 done 或 fail
 ```
@@ -602,6 +649,7 @@ nfv9gen send CONFIG [OPTIONS]
 | 選項 | 預設 | 說明 |
 |---|---|---|
 | `--packet-size BYTES` | 1400 | 三個指令共用；64～65507，含 20-byte NetFlow header，不含 IP／UDP header |
+| `--ipfix` | 關閉 | 三個指令共用；送出 IPFIX 而非 NetFlow v9（header 為 16 bytes）；見 [IPFIX 輸出](#ipfix-輸出) |
 | `--kind` | all | preview 專用：all、templates、data；all 先列 Template 再列 Data |
 | `--hex` | 關閉 | preview 顯示完整 UDP payload hex |
 | `--limit N` | 8 | 篩選後最多顯示 N 包，至少 1；不是紀錄數 |

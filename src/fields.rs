@@ -10,6 +10,7 @@ pub enum Kind {
     Asn,
     Icmp4,
     Icmp6,
+    Bytes,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -17,6 +18,8 @@ pub struct FieldSpec {
     pub id: u16,
     pub length: usize,
     pub kind: Kind,
+    /// IPFIX variable-length element: the template says 65535 and `length` is the on-wire length prefix.
+    pub variable: bool,
 }
 
 pub fn lookup(name: &str, scope: bool) -> Result<FieldSpec> {
@@ -90,5 +93,28 @@ pub fn lookup(name: &str, scope: bool) -> Result<FieldSpec> {
             _ => bail!("Unknown regular field {name}; see README.md for the full field list"),
         }
     };
-    Ok(FieldSpec { id, length, kind })
+    Ok(FieldSpec {
+        id,
+        length,
+        kind,
+        variable: false,
+    })
+}
+
+/// IPFIX has no separate scope namespace, so scopes and regular fields share this table.
+pub fn lookup_ipfix(name: &str) -> Result<FieldSpec> {
+    let spec = |id, length, kind, variable| FieldSpec {
+        id,
+        length,
+        kind,
+        variable,
+    };
+    // Deliberately not shaped like the v9 table above: tests scan that shape as the v9 registry.
+    Ok(match name {
+        "DIRECTION" => spec(61, 1, Kind::Number, false),
+        "FLOW_EXPORTER" => spec(144, 4, Kind::Number, false),
+        "DATALINK_FRAME_SIZE" => spec(312, 2, Kind::Number, false),
+        "DATALINK_FRAME_SECTION" => spec(315, 0, Kind::Bytes, true),
+        _ => return lookup(name, false),
+    })
 }

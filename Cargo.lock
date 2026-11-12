@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "libc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,17 +144,6 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
-
-[[package]]
-name = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "clap",
- "libc",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "once_cell_polyfill"

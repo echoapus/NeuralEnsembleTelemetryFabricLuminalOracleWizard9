@@ -49,6 +49,7 @@ fn value(bytes: &[u8], spec: FieldSpec) -> String {
                 bytes[0]
             )
         }
+        Kind::Bytes => bytes.iter().map(|byte| format!("{byte:02x}")).collect(),
         Kind::Number => number().to_string(),
     }
 }
@@ -97,6 +98,10 @@ pub fn flow(flow: &Flow, out: &mut impl Write) -> io::Result<()> {
         "  Field / Length / Value count / First value (last value shown for multiple values)"
     )?;
     for (index, column) in flow.columns.iter().enumerate() {
+        // Constant header and padding bytes of a generated frame are noise here.
+        if column.name.ends_with(".FIXED") {
+            continue;
+        }
         if let Values::RandomField { min, max, length } = column.values {
             writeln!(
                 out,
