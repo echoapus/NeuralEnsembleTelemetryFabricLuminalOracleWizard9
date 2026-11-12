@@ -45,8 +45,8 @@ GitHub Actions tests and builds every push to `main`. **Actions → Build and re
 To publish a version, update `Cargo.toml` and `Cargo.lock`, commit and push the changes, then push a matching version tag:
 
 ```bash
-git tag v0.0.1
-git push origin v0.0.1
+git tag v0.0.2
+git push origin v0.0.2
 ```
 
 Use a new tag for each release. After tests and compilation pass, the workflow creates a GitHub Release containing the binary archive and checksum. It uses GitHub's automatic token; no personal access token or repository secret is needed.
@@ -137,7 +137,7 @@ The finished program is **`target/release/nfv9gen`**, inside the project folder.
 ./target/release/nfv9gen preview examples/basic.json --kind data --hex
 ```
 
-`--version` should show `nfv9gen 0.0.1`. The `./` prefix tells Linux to run the file at this relative path. Validation should print:
+`--version` should show `nfv9gen 0.0.2`. The `./` prefix tells Linux to run the file at this relative path. Validation should print:
 
 ```text
 Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets

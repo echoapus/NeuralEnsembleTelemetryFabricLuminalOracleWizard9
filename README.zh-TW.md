@@ -45,8 +45,8 @@ cd nfv9gen-linux-x86_64
 發佈版本前，先更新 `Cargo.toml`、`Cargo.lock`，提交並推送變更，再推送相符的版本標籤：
 
 ```bash
-git tag v0.0.1
-git push origin v0.0.1
+git tag v0.0.2
+git push origin v0.0.2
 ```
 
 每個版本使用新標籤。測試與編譯成功後，工作流程會建立 GitHub Release，附上執行檔壓縮檔與校驗碼。使用 GitHub 自動提供的 token，不需設定個人存取權杖或 repository secret。
@@ -137,7 +137,7 @@ cargo build --release --locked
 ./target/release/nfv9gen preview examples/basic.json --kind data --hex
 ```
 
-`--version` 應顯示 `nfv9gen 0.0.1`。路徑前方的 `./` 表示執行目前位置下的檔案。驗證應顯示：
+`--version` 應顯示 `nfv9gen 0.0.2`。路徑前方的 `./` 表示執行目前位置下的檔案。驗證應顯示：
 
 ```text
 Validation passed: Source ID=42, 1 templates, 1 records, 1 data packets

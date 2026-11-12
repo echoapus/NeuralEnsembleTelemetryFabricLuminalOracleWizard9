@@ -1,6 +1,6 @@
 [package]
 name = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 rust-version = "1.85"
 description = "NeuralEnsembleTelemetryFabricLuminalOracleWizard9: a validated NetFlow v9 and IPFIX generator with offline preview"
