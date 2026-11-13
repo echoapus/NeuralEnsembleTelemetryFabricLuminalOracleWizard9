@@ -199,7 +199,7 @@ ASN 的點與 RD 的冒號前後可有空白，例如 `"AS1 . 10"`、`"65000 : 1
 
 ICMP 的 type 可用整數或以上名稱。IPv4 ICMP 設 PROTOCOL＝1，IPv6 ICMP 設 PROTOCOL＝58；CLI 的 ICMP range 也會經過單一值編碼，HTML 只接受合併整數端點。
 
-MPLS label 與 stack metadata 必須明列於 `fields`，不再接受 flow 層級的 `mpls_stack`。MPLS label 以 3 bytes 匯出，不含 TTL；手動欄位不會自動補 BoS 或 stack metadata。原始 stack 每層為 4 bytes，所以兩層的 MPLS_LABEL_STACK_LENGTH 為 8。RD 固定 8 bytes，其 ASN 部分可用 AS 前綴／asdot；未指定 type 時，IPv4 管理者選 Type 1，ASN≤65535 選 Type 0，其餘選 Type 2。詳見 [MPLS 設定](README.zh-TW.md#mpls-設定)。
+MPLS label 與 stack metadata 必須明列於 `fields`，不再接受 flow 層級的 `mpls_stack`。MPLS label 以 3 bytes 匯出，不含 TTL；手動欄位不會自動補 BoS 或 stack metadata。原始 stack 每層為 4 bytes，所以兩層的 MPLS_LABEL_STACK_LENGTH 為 8。RD 固定 8 bytes，其 ASN 部分可用 AS 前綴／asdot；未指定 type 時，IPv4 管理者選 Type 1，ASN≤65535 選 Type 0，其餘選 Type 2。詳見 [MPLS 設定](field.zh-TW.md#asnicmp-與-mpls)。
 
 ## 計數器與 Collector 每分鐘預期平均速率
 
@@ -224,7 +224,7 @@ Template         IN bps         IN pps        OUT bps        OUT pps
 
 ## JSON 與 HTML 的差異
 
-JSON 的四個計數器都保存實際值，不支援公式。HTML 可讓 IN_BYTES／OUT_BYTES 以「同方向 PKTS × 平均封包大小」計算，但只支援單一 PKTS，且匯出後是一般 BYTES 整數；連動設定僅隨草稿保留，見 [IN／OUT 計數器](README.zh-TW.md#inout-計數器)。
+JSON 的四個計數器都保存實際值，不支援公式。HTML 可讓 IN_BYTES／OUT_BYTES 以「同方向 PKTS × 平均封包大小」計算，但只支援單一 PKTS，且匯出後是一般 BYTES 整數；連動設定僅隨草稿保留，見 [IN／OUT 計數器](field.zh-TW.md#計數器與-collector-每分鐘預期平均速率)。
 
 本文件列的是 CLI JSON 接受的格式；HTML 不支援匯入 `random_file`、含名稱／物件的 ICMP range 或超過 JavaScript 安全整數的值。一般欄位值不會改變實際 UDP 的來源／目的 IP、port 或發送網卡；這些由 CLI 參數決定。
 

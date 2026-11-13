@@ -24,8 +24,8 @@ static STOP: AtomicBool = AtomicBool::new(false);
 #[command(
     name = "nfv9gen",
     version,
-    about = "NetFlow v9 / IPFIX traffic generator: validate and preview before sending; no root required by default",
-    after_help = "Recommended workflow: validate → preview → send. Run nfv9gen <COMMAND> -h for all command options.\nConfiguration: JSON; flows with the same template_id can share a template structure. Each flow expands its values independently.\nField values support scalars, arrays, prefixes, or ranges; multiple values form a Cartesian product. L4 ports, IN_PKTS, and IN_BYTES also support random_between=[min,max] with inclusive bounds. IP fields support random_file=PATH (one address per line, sent as /32 or /128).\nExamples:\n  nfv9gen validate examples/basic.json\n  nfv9gen preview examples/interfaces.json --hex\n  nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100\nMore examples: examples/options.json, ranges.json, mpls.json, asn.json, convenience.json, nexthop.json, random-ports.json, random-ips.json.\nOpen config-builder.html in a browser to fill out a form and download JSON.\nSee README.md for setup, configuration, CLI options, and the field reference.\nExit codes: 0 success, 1 configuration or runtime error, 2 argument error, 130 interrupted by user."
+    about = "NetFlow v9 / IPFIX traffic generator for testing collectors",
+    after_help = "Workflow: validate → preview → send. Run nfv9gen <COMMAND> -h for command options. Add --ipfix for IPFIX output.\nExamples:\n  nfv9gen validate examples/basic.json\n  nfv9gen preview examples/basic.json --hex\n  nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100\nConfiguration format and fields: README.md, field.md, examples/. config-builder.html builds JSON in a browser.\nSource and releases: https://github.com/echoapus/NeuralEnsembleTelemetryFabricLuminalOracleWizard9\nExit codes: 0 success, 1 configuration or runtime error, 2 argument error, 130 interrupted by user."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -37,12 +37,12 @@ struct Cli {
 
 #[derive(Args)]
 struct Input {
-    /// JSON configuration path; maximum 8 MiB and 500,000 expanded records (not cumulative sends); arrays determine field order
+    /// JSON configuration path (maximum 8 MiB and 500,000 expanded records)
     config: PathBuf,
-    /// UDP payload limit (64..=65507 bytes), including the 20-byte NetFlow (16-byte IPFIX) header but not IP/UDP headers; records are split into packets
+    /// Maximum UDP payload in bytes (64..=65507), including the NetFlow/IPFIX header
     #[arg(long, default_value_t = protocol::DEFAULT_PACKET_SIZE as u32, value_parser = clap::value_parser!(u32).range(64..=65507))]
     packet_size: u32,
-    /// Send IPFIX (version 10) instead of NetFlow v9; required for IPFIX-only fields such as DATALINK_FRAME_SECTION
+    /// Use IPFIX (version 10) instead of NetFlow v9; needed for DATALINK_FRAME_SECTION
     #[arg(long)]
     ipfix: bool,
 }
@@ -51,7 +51,7 @@ struct Input {
 enum Command {
     /// Validate all fields, ranges, and packet sizes without creating a socket
     #[command(
-        after_help = "Check JSON, template IDs, field values, combinations, and whether templates and individual records fit in a packet.\nOn success, show the Source ID, template count, configured records, and data packets per cycle.\nThe 500,000-record limit applies to expansion across all flows; random_between counts as one value and does not expand its range.\nExamples:\n  nfv9gen validate examples/interfaces.json\n  nfv9gen validate examples/ranges.json --packet-size 1200"
+        after_help = "Checks the JSON, field values, expanded record count, and that templates and records fit in a packet.\nExamples:\n  nfv9gen validate examples/interfaces.json\n  nfv9gen validate examples/ranges.json --packet-size 1200"
     )]
     Validate {
         #[command(flatten)]
@@ -59,65 +59,65 @@ enum Command {
     },
     /// Preview prebuilt packets without creating a socket
     #[command(
-        after_help = "Show field lengths, value counts, first and last values, and expansion formulas.\nPreview uses the current UNIX time, uptime=0, and sequence=0; it does not reuse a send session.\nrandom_between shows its range; hex uses the minimum value without sampling.\nExamples:\n  nfv9gen preview examples/interfaces.json --hex\n  nfv9gen preview examples/convenience.json --template-id 601 --kind data --limit 2"
+        after_help = "Shows field lengths, value counts, and first/last values. Uses the current time, uptime=0, and sequence=0; random_between fields use their minimum value.\nExamples:\n  nfv9gen preview examples/interfaces.json --hex\n  nfv9gen preview examples/convenience.json --template-id 601 --kind data --limit 2"
     )]
     Preview {
         #[command(flatten)]
         input: Input,
-        /// Packet kind: all shows templates then data; templates shows only templates; data shows only data
+        /// Packets to show: all (templates, then data), templates, or data
         #[arg(long, value_enum, default_value_t = Kind::All)]
         kind: Kind,
         /// Show the full UDP payload in hexadecimal
         #[arg(long)]
         hex: bool,
-        /// Maximum packets to show (at least 1), after kind and template-id filters; not a record count
+        /// Maximum packets to show (at least 1); not a record count
         #[arg(long, default_value_t = 8, value_parser = clap::value_parser!(u32).range(1..))]
         limit: u32,
-        /// Preview only this Template ID (256..=65535); validation and totals still cover the full configuration
+        /// Show only this Template ID (256..=65535); totals still cover the full configuration
         #[arg(long, value_parser = clap::value_parser!(u16).range(256..))]
         template_id: Option<u16>,
-        /// Target data packets/s for expected collector rates (no packets sent); estimates cover the full configuration
+        /// Target data packets/s for the expected collector rates (sends nothing)
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=1_000_000_000))]
         rate: u32,
     },
     /// Send UDP; by default, send templates followed by one cycle of data
     #[command(
-        after_help = "By default, send all templates, then one cycle of data packets at 20 data packets/s.\ncount/rate measure datagrams, not records: data packets for all/data, template packets for templates.\nThe 500,000-record limit applies to configured expansion; cumulative sent records may exceed it. Stopping by record count is not supported.\nrandom_between resamples each record on every send; duplicates are allowed. It does not increase configured records or change actual UDP ports.\nBefore sending, show the configuration summary and expected collector rates by template. Use preview for fields and random ranges.\nAutomatic templates in all mode are extra; refresh before the next data packet when either threshold is reached.\ndata mode requires the collector to have a matching template for the same source_id, source IP:port, and field definitions.\n--source uses Linux raw sockets without changing addresses in JSON; TTL/hop limit=64, with no fragmentation.\nActual rates depend on the OS and network. UDP success means the OS accepted the packet; it does not confirm collector receipt.\nCtrl-C / SIGTERM stops sending, prints statistics, and exits with code 130. Interactive terminals show progress; redirected output writes statistics to stderr every 5 seconds.\nExamples:\n  nfv9gen send examples/interfaces.json --target 127.0.0.1:2055 --count 100\n  nfv9gen send examples/basic.json --rate 1000 --duration 10\n  nfv9gen send examples/random-ports.json --rate 5 --duration 600\n  nfv9gen send examples/ranges.json --mode burst --burst-size 64 --rate 100000 --count 100000\n  nfv9gen send examples/basic.json --bind 127.0.0.1:5000\n  sudo nfv9gen send examples/basic.json --target 192.0.2.10:2055 --source 198.51.100.123:5000"
+        after_help = "Without --count or --duration, sends all templates and then one cycle of data at 20 packets/s.\n--kind data needs a collector that already knows the templates (same source_id, source IP:port, and definitions).\nUDP success means the OS accepted the packet, not that the collector received it.\nCtrl-C stops sending, prints statistics, and exits with code 130.\nExamples:\n  nfv9gen send examples/basic.json --target 127.0.0.1:2055 --count 100\n  nfv9gen send examples/ranges.json --rate 1000 --duration 10\n  sudo nfv9gen send examples/basic.json --target 192.0.2.10:2055 --source 198.51.100.123:5000"
     )]
     Send {
         #[command(flatten)]
         input: Input,
-        /// Collector IP/hostname and port; use [::1]:2055 for IPv6
+        /// Collector IP/hostname and port, such as [::1]:2055 for IPv6
         #[arg(long, default_value = "127.0.0.1:2055")]
         target: String,
-        /// Bind a configured local IP:port using the same IP version as target; conflicts with source; defaults to the OS choice
+        /// Local IP:port to send from (default: OS choice); conflicts with source
         #[arg(long)]
         bind: Option<SocketAddr>,
-        /// Actual UDP source IP:port (may be nonlocal); requires explicit unicast, port>0, the same IP version as target, and root or CAP_NET_RAW; conflicts with bind
+        /// Set the UDP source IP:port, even a nonlocal one (needs root or CAP_NET_RAW); conflicts with bind
         #[arg(long, conflicts_with = "bind")]
         source: Option<SocketAddr>,
-        /// all sends and refreshes templates before data; templates sends only templates; data sends only data
+        /// all sends templates then data and refreshes templates; templates or data sends only that kind
         #[arg(long, value_enum, default_value_t = Kind::All)]
         kind: Kind,
-        /// Packet count (at least 1), reusing prebuilt packets; counts templates in templates mode, otherwise data; defaults to one cycle without count/duration
+        /// Stop after N packets (default: one cycle); templates are counted only with --kind templates
         #[arg(long, conflicts_with = "duration", value_parser = clap::value_parser!(u64).range(1..))]
         count: Option<u64>,
-        /// Duration in seconds (0 runs until Ctrl-C / SIGTERM; positive fractions such as 0.5 are accepted); includes initial templates; conflicts with count
+        /// Run for this many seconds (0 runs until Ctrl-C); conflicts with count
         #[arg(long, value_parser = send_duration)]
         duration: Option<Duration>,
-        /// Target packets/s (1..=1000000000); counts templates in templates mode, otherwise data; automatic templates are extra
+        /// Target packets per second (1..=1000000000)
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=1_000_000_000))]
         rate: u32,
-        /// stream schedules individual packets; burst sends batches with intervals to control the average target rate
+        /// stream sends packets one by one; burst sends them in batches
         #[arg(long, value_enum, default_value_t = Mode::Stream)]
         mode: Mode,
-        /// Maximum packets per burst (at least 1), capped at rate; unused in stream mode
+        /// Packets per batch in burst mode (at least 1)
         #[arg(long, default_value_t = 64, value_parser = clap::value_parser!(u32).range(1..))]
         burst_size: u32,
-        /// Only kind=all: template refresh interval in finite positive seconds; refresh before the next data packet when this or template-every is reached
+        /// With kind=all: refresh templates after this many seconds
         #[arg(long, default_value = "30", value_parser = duration)]
         template_interval: Duration,
-        /// Only kind=all: refresh all templates before the next data packet after every N data packets (at least 1)
+        /// With kind=all: refresh templates after every N data packets (at least 1)
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(1..))]
         template_every: u64,
     },

@@ -199,7 +199,7 @@ ASN dots and RD colons allow surrounding whitespace, such as `"AS1 . 10"` and `"
 
 ICMP type accepts an integer or one of these names. Set PROTOCOL=1 for IPv4 ICMP and PROTOCOL=58 for IPv6 ICMP. CLI ICMP range endpoints pass through single-value encoding; HTML accepts only combined integer endpoints.
 
-Set MPLS labels and stack metadata explicitly in `fields`; flow-level `mpls_stack` is no longer accepted. MPLS labels export as 3 bytes without TTL. Manual fields do not fill in BoS or stack metadata automatically. Original MPLS stacks use four bytes per layer, so two layers have MPLS_LABEL_STACK_LENGTH=8. RDs are fixed at 8 bytes, and ASN administrators support AS prefixes/asdot. Without an explicit type, an IPv4 administrator selects Type 1, ASN≤65535 selects Type 0, and larger ASNs select Type 2. See [MPLS configuration](README.md#mpls-configuration).
+Set MPLS labels and stack metadata explicitly in `fields`; flow-level `mpls_stack` is no longer accepted. MPLS labels export as 3 bytes without TTL. Manual fields do not fill in BoS or stack metadata automatically. Original MPLS stacks use four bytes per layer, so two layers have MPLS_LABEL_STACK_LENGTH=8. RDs are fixed at 8 bytes, and ASN administrators support AS prefixes/asdot. Without an explicit type, an IPv4 administrator selects Type 1, ASN≤65535 selects Type 0, and larger ASNs select Type 2. See [MPLS configuration](field.md#asns-icmp-and-mpls).
 
 ## Counters and expected collector average rates per minute
 
@@ -224,7 +224,7 @@ These estimates assume continuous sending, complete receipt, aggregation by rece
 
 ## JSON and HTML differences
 
-All four JSON counters store actual values, without formulas. HTML can calculate IN_BYTES/OUT_BYTES as same-direction PKTS × average packet size, but requires a single PKTS value and exports an ordinary BYTES integer. Calculation settings are retained only in drafts; see [IN/OUT counters](README.md#inout-counters).
+All four JSON counters store actual values, without formulas. HTML can calculate IN_BYTES/OUT_BYTES as same-direction PKTS × average packet size, but requires a single PKTS value and exports an ordinary BYTES integer. Calculation settings are retained only in drafts; see [IN/OUT counters](field.md#counters-and-expected-collector-average-rates-per-minute).
 
 This reference describes formats accepted by CLI JSON. HTML does not import `random_file`, ICMP ranges with named/object endpoints, or integers above JavaScript's safe range. Regular field values do not change actual UDP source/destination IPs, ports, or sending interfaces; CLI options control those.
 
