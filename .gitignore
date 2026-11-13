@@ -1,5 +1,6 @@
 /target/
 /.aws/
+/hpeipfix315/
 .env
 .env.*
 !.env.example
