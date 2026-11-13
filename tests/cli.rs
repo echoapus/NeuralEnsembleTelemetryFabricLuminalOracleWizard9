@@ -153,7 +153,7 @@ fn cli_rejects_conflicts_zero_and_nonfinite_durations() {
     }
     assert!(cli(&["--help"]).status.success());
     assert!(cli(&["send", "--help"]).status.success());
-    assert!(String::from_utf8_lossy(&cli(&["--version"]).stdout).contains("nfv9gen 0.0.2"));
+    assert!(String::from_utf8_lossy(&cli(&["--version"]).stdout).contains("nfv9gen 0.0.3"));
 }
 
 #[test]
